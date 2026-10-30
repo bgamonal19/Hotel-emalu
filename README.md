@@ -1,13 +1,15 @@
 # Hotel Emalu
 
-Aplicación web del Hotel Emalu: vista 3D del edificio por pisos, ficha de cada habitación, panel de recepción en vivo y reserva de prueba.
+Aplicación web del Hotel Emalu: plano 3D del edificio por pisos, ficha de cada habitación, panel de recepción en vivo y reserva de prueba.
 
 ## Cómo verla
 
-Abre `index.html` en el navegador. No necesita instalación; carga three.js desde cdnjs.
+Abre `index.html` en el navegador. Necesita conexión a internet para cargar Three.js, Tailwind, Font Awesome y la fuente Inter.
 
-## Estado
+## Contenido
 
-- Versión de referencia reconstruida a partir del prototipo hecho en ChatGPT.
-- Forma del edificio, colores y distribución de habitaciones son provisionales hasta tener el código original.
-- Las reservas son de demostración: no hay cobros ni datos guardados.
+- `index.html`: el diseño 3D original, sin cambios.
+- `referencias/plano-original.jpg`: plano de referencia del edificio.
+- `referencias/vista-3d.png`: captura de la vista 3D.
+
+Las reservas y pagos son de demostración: no hay cobros ni datos guardados.

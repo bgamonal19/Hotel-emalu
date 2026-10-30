@@ -1,526 +1,1271 @@
-<title>Hotel Emalu 3D</title>
-<meta name="claude:viewport-fit-sides" content="cover">
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Marcellus&family=Figtree:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap">
-<style>
-/* Layout: app shell — header, 3D viewer on the left, room card + booking on the right; stacks on phones */
-:root {
-  --bg: #eef0ec;
-  --surface: #ffffff;
-  --surface-2: #f5f6f2;
-  --fg: #1e2420;
-  --muted: #5d665f;
-  --line: #d6dad2;
-  --accent: #9a6b2f;      /* bronce */
-  --accent-fg: #ffffff;
-  --ok: #2f7d4f;
-  --busy: #b23b2e;
-  --scene-bg: #dfe3dc;
-  --font-display: "Marcellus", "Times New Roman", serif;
-  --font-body: "Figtree", system-ui, -apple-system, "Segoe UI", sans-serif;
-  --font-data: "JetBrains Mono", ui-monospace, Menlo, monospace;
-}
-@media (prefers-color-scheme: dark) {
-  :root:not([data-theme="light"]) {
-    --bg: #141815; --surface: #1c211d; --surface-2: #232924; --fg: #e9ece6; --muted: #9ba49c;
-    --line: #333b35; --accent: #d39a55; --accent-fg: #1a140c; --ok: #5cc287; --busy: #ef7b6c;
-    --scene-bg: #1a1f1b; color-scheme: dark;
-  }
-}
-:root[data-theme="dark"] {
-  --bg: #141815; --surface: #1c211d; --surface-2: #232924; --fg: #e9ece6; --muted: #9ba49c;
-  --line: #333b35; --accent: #d39a55; --accent-fg: #1a140c; --ok: #5cc287; --busy: #ef7b6c;
-  --scene-bg: #1a1f1b; color-scheme: dark;
-}
-* { box-sizing: border-box; }
-body { background: var(--bg); color: var(--fg); font-family: var(--font-body); font-size: 15px; line-height: 1.5; }
-h1, h2, h3 { font-family: var(--font-display); font-weight: 400; text-wrap: balance; margin: 0; }
-button, input, select { font: inherit; color: inherit; }
-button:focus-visible, input:focus-visible, select:focus-visible, canvas:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+<!DOCTYPE html>
+<html lang="es" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Aura Luxury Hotel - Cuarto Piso · Vista previa</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        gold: {
+                            300: '#f3e5ab',
+                            400: '#e5c158',
+                            500: '#d4af37',
+                            600: '#aa8c2c',
+                            700: '#806820'
+                        },
+                        dark: {
+                            950: '#07080b',
+                            900: '#0e1117',
+                            800: '#171b22',
+                            700: '#232832',
+                            600: '#2e3543'
+                        }
+                    },
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif']
+                    }
+                }
+            }
+        }
+    </script>
+    <!-- Font Awesome Icons & Fonts -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    
+    <!-- Three.js & OrbitControls Libraries -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
 
-.wrap { padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); max-width: 1400px; margin: 0 auto; }
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        html, body { width: 100%; height: 100%; overflow: hidden; font-family: 'Inter', sans-serif; background-color: #0d0f12; color: #f1f5f9; }
 
-header.top { border-bottom: 1px solid var(--line); background: var(--surface); }
-header.top .wrap { display: flex; align-items: center; gap: 16px; padding-block: 12px; flex-wrap: wrap; }
-.menu-btn { border: 1px solid var(--line); background: transparent; border-radius: 6px; width: 40px; height: 40px; font-size: 20px; cursor: pointer; }
-.brand { display: flex; flex-direction: column; line-height: 1.1; }
-.brand b { font-family: var(--font-display); font-weight: 400; font-size: 22px; letter-spacing: .14em; }
-.brand span { font-size: 12px; color: var(--muted); letter-spacing: .06em; text-transform: uppercase; }
-.modes { margin-left: auto; display: flex; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
-.modes button { border: 0; background: transparent; padding: 8px 14px; cursor: pointer; font-size: 14px; }
-.modes button[aria-pressed="true"] { background: var(--fg); color: var(--bg); }
+        #webgl-canvas-container {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 1;
+            background-color: #0d0f12;
+        }
 
-.floors { display: flex; gap: 8px; flex-wrap: wrap; padding-block: 12px; }
-.floors[hidden] { display: none !important; }
-.floor-btn { border: 1px solid var(--line); background: var(--surface); border-radius: 999px; padding: 6px 14px; cursor: pointer; display: flex; gap: 8px; align-items: baseline; }
-.floor-btn small { color: var(--muted); font-size: 12px; }
-.floor-btn[aria-pressed="true"] { border-color: var(--accent); background: var(--accent); color: var(--accent-fg); }
-.floor-btn[aria-pressed="true"] small { color: inherit; opacity: .85; }
+        canvas {
+            width: 100% !important;
+            height: 100% !important;
+            outline: none;
+            display: block;
+        }
 
-.notice { font-size: 13px; color: var(--muted); padding-block: 0 8px; }
-.notice strong { color: var(--fg); font-weight: 600; }
+        .ui-overlay {
+            position: relative;
+            z-index: 10;
+            pointer-events: none;
+        }
 
-main.grid { display: grid; grid-template-columns: minmax(0, 1fr) 380px; gap: 20px; padding-block: 4px 32px; }
-@media (max-width: 920px) { main.grid { grid-template-columns: minmax(0, 1fr); } }
+        .interactive-ui {
+            pointer-events: auto;
+        }
 
-.viewer { position: relative; background: var(--scene-bg); border: 1px solid var(--line); border-radius: 10px; overflow: hidden; min-height: 460px; height: 64vh; max-height: 720px; }
-.viewer canvas { display: block; width: 100%; height: 100%; touch-action: none; cursor: grab; }
-.viewer canvas.dragging { cursor: grabbing; }
-.v-head { position: absolute; left: 14px; top: 12px; right: 14px; display: flex; justify-content: space-between; gap: 12px; pointer-events: none; flex-wrap: wrap; }
-.v-head > * { pointer-events: auto; }
-.v-title { background: color-mix(in srgb, var(--surface) 88%, transparent); border: 1px solid var(--line); border-radius: 8px; padding: 8px 12px; max-width: 320px; }
-.v-title h2 { font-size: 18px; }
-.v-title p { margin: 2px 0 0; font-size: 12px; color: var(--muted); }
-.tools { display: flex; gap: 6px; align-self: flex-start; }
-.tools button { border: 1px solid var(--line); background: var(--surface); border-radius: 6px; padding: 6px 10px; cursor: pointer; font-size: 13px; }
-.tools button[aria-pressed="true"] { border-color: var(--fg); background: var(--fg); color: var(--bg); }
-.v-foot { position: absolute; left: 14px; bottom: 12px; right: 14px; display: flex; justify-content: space-between; align-items: flex-end; gap: 12px; pointer-events: none; flex-wrap: wrap; }
-.legend { display: flex; gap: 12px; font-size: 12px; background: color-mix(in srgb, var(--surface) 88%, transparent); border: 1px solid var(--line); border-radius: 6px; padding: 6px 10px; }
-.legend i { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 5px; vertical-align: -1px; }
-.hint { font-size: 12px; color: var(--muted); background: color-mix(in srgb, var(--surface) 88%, transparent); border-radius: 6px; padding: 4px 8px; }
-.tip { position: absolute; pointer-events: none; background: var(--fg); color: var(--bg); font-size: 12px; padding: 4px 8px; border-radius: 4px; transform: translate(-50%, -130%); white-space: nowrap; }
+        .room-hotspot {
+            position: absolute;
+            transform: translate(-50%, -50%);
+            z-index: 20;
+            cursor: pointer;
+            user-select: none;
+            transition: transform 0.2s ease, opacity 0.2s ease;
+        }
+        .room-hotspot {will-change:transform;transition:opacity .15s; }
+        .room-hotspot:hover {
+            transform: translate(-50%, -50%) scale(1.15);
+            z-index: 30;
+        }
 
-/* Panel de recepción */
-.reception { position: absolute; right: 14px; top: 64px; width: min(300px, calc(100% - 28px)); background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 14px; box-shadow: 0 8px 30px rgb(0 0 0 / .12); }
-.reception header { display: flex; justify-content: space-between; align-items: start; gap: 8px; }
-.reception h3 { font-size: 17px; }
-.reception p.sub { margin: 2px 0 10px; font-size: 12px; color: var(--muted); }
-.close { border: 0; background: transparent; font-size: 18px; cursor: pointer; line-height: 1; padding: 2px 6px; }
-.stats { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
-.stat { background: var(--surface-2); border-radius: 6px; padding: 8px 10px; }
-.stat b { display: block; font-family: var(--font-data); font-size: 20px; font-weight: 500; font-variant-numeric: tabular-nums; }
-.stat span { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: .06em; }
-.stat.free b { color: var(--ok); } .stat.busy b { color: var(--busy); }
-.roomlist { list-style: none; margin: 10px 0 0; padding: 0; display: grid; gap: 4px; font-size: 13px; }
-.roomlist li { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
-.roomlist button { border: 1px solid var(--line); background: transparent; border-radius: 999px; font-size: 11px; padding: 2px 8px; cursor: pointer; }
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: #171b22; }
+        ::-webkit-scrollbar-thumb { background: #374151; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #d4af37; }
+    
+#webgl-canvas-container {top:86px;height:calc(100% - 330px)}
+header {position:relative;z-index:40}
+#reference-tools {flex-wrap:wrap;max-width:calc(100% - 90px);position:fixed;top:102px;left:24px;z-index:45;display:flex;gap:8px}
+#reference-tools button {background:#171b22;border:1px solid #52504a;color:#e5c158;padding:10px 14px;border-radius:10px;font:600 12px Inter,sans-serif;cursor:pointer}
+#reference-view {position:fixed;inset:150px 80px 270px 20px;z-index:35;background:#eeece7;border-radius:16px;overflow:hidden;display:none}
+#reference-view img {width:100%;height:100%;object-fit:contain}
+#panel-guest-mode,#panel-reception-mode {position:relative;z-index:40}
+@media(max-width:767px){#webgl-canvas-container{height:48%;top:80px}#reference-view{inset:145px 65px 48% 12px}#reference-tools{left:12px;top:94px}#panel-guest-mode{max-height:43vh;overflow:auto}#panel-reception-mode{max-height:43vh;overflow:auto}header .tracking-widest{max-width:170px;font-size:8px}}
 
-/* Lateral */
-aside.side { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
-.card { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 16px; }
-.eyebrow { font-size: 11px; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); }
-.room-head { display: flex; justify-content: space-between; align-items: start; gap: 12px; }
-.room-head h3 { font-size: 22px; margin-top: 2px; }
-.pill { font-size: 12px; font-weight: 600; padding: 3px 10px; border-radius: 999px; white-space: nowrap; }
-.pill.free { background: color-mix(in srgb, var(--ok) 16%, transparent); color: var(--ok); }
-.pill.busy { background: color-mix(in srgb, var(--busy) 16%, transparent); color: var(--busy); }
-.pill.hall { background: var(--surface-2); color: var(--muted); }
-.room-desc { margin: 10px 0 12px; color: var(--muted); }
-dl.specs { display: grid; grid-template-columns: auto 1fr; gap: 6px 14px; margin: 0; font-size: 14px; }
-dl.specs dt { color: var(--muted); }
-dl.specs dd { margin: 0; }
-.mono { font-family: var(--font-data); font-size: 13px; font-variant-numeric: tabular-nums; }
-.verify { font-size: 11px; color: var(--accent); margin-left: 6px; }
-.actions { display: flex; gap: 8px; margin-top: 14px; }
-.btn { border: 1px solid var(--fg); background: transparent; border-radius: 6px; padding: 9px 14px; cursor: pointer; font-weight: 500; flex: 1; }
-.btn.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-fg); }
-.btn:disabled { opacity: .45; cursor: not-allowed; }
-.empty { color: var(--muted); font-size: 14px; }
-
-form.book { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
-form.book .full { grid-column: 1 / -1; }
-form.book label { display: flex; flex-direction: column; gap: 4px; font-size: 13px; color: var(--muted); min-width: 0; }
-form.book input, form.book select { border: 1px solid var(--line); background: var(--surface-2); border-radius: 6px; padding: 8px 10px; color: var(--fg); width: 100%; }
-.demo-note { font-size: 12px; color: var(--muted); background: var(--surface-2); border-radius: 6px; padding: 8px 10px; margin: 8px 0 12px; }
-.warn { font-size: 12px; color: var(--busy); }
-.total { display: flex; justify-content: space-between; align-items: baseline; border-top: 1px solid var(--line); padding-top: 10px; }
-.total b { font-family: var(--font-data); font-size: 20px; font-weight: 500; }
-.confirm { font-size: 13px; background: color-mix(in srgb, var(--ok) 14%, transparent); color: var(--fg); border-radius: 6px; padding: 8px 10px; }
-
-@media (max-width: 560px) {
-  .modes { margin-left: 0; width: 100%; } .modes button { flex: 1; }
-  .viewer { height: 56vh; min-height: 380px; }
-  .reception { top: auto; bottom: 52px; }
-}
-@media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+header {display:none!important}
+.ui-overlay > .absolute.right-4 {display:none!important}
+#panel-guest-mode,#panel-reception-mode {display:none!important}
+#webgl-canvas-container {top:0!important;height:100%!important}
+#facade-room-menu {top:20px!important;right:20px!important;max-height:85vh!important}
+@media(max-width:600px){#facade-room-menu{top:85px!important;right:12px!important;width:260px!important;max-height:70vh!important}}
 </style>
+</head>
+<body class="bg-dark-950 text-slate-100 flex flex-col h-screen w-screen overflow-hidden antialiased">
 
-<header class="top">
-  <div class="wrap">
-    <button class="menu-btn" id="menuBtn" aria-label="Mostrar pisos" aria-expanded="true">☰</button>
-    <div class="brand"><b>HOTEL EMALU</b><span>Vista 3D · Referencia del cuarto piso</span></div>
-    <div class="modes" role="group" aria-label="Modo de vista">
-      <button id="modeSelf" aria-pressed="true">Vista Autoservicio / 3D</button>
-      <button id="modeLive" aria-pressed="false">Modo Recepción Live</button>
+    <!-- 3D WEBGL CANVAS BACKGROUND -->
+    <div id="webgl-canvas-container"></div>
+
+    <details id="main-menu" style="position:fixed;left:20px;top:20px;z-index:80;background:#111820;color:white;border:1px solid #414750;border-radius:12px;padding:10px;max-height:85vh;overflow:auto">
+    <summary aria-label="Abrir menú de navegación" style="cursor:pointer;list-style:none;font-size:25px;line-height:30px;padding:0 6px">☰</summary>
+    <nav id="reference-tools" style="position:static;display:flex;flex-direction:column;max-width:none;width:255px;padding-top:12px;gap:8px">
+    <button onclick="viewFacade();document.getElementById('main-menu').open=false">Fachada y habitaciones</button>
+    <label style="font-size:13px;padding:5px">Seleccionar piso<select id="active-floor" aria-label="Seleccionar piso" onchange="selectHotelFloor(this.value);document.getElementById('main-menu').open=false" style="display:block;width:100%;background:#25313e;color:white;border:1px solid #52606e;border-radius:8px;padding:10px;margin-top:7px"><option value="1">Piso 1 · recepción y cochera</option><option value="2">Piso 2 · habitaciones</option><option value="3">Piso 3 · habitaciones</option></select></label>
+    <button id="drag-mode" onclick="toggleDragMode()">Arrastrar activo · cambiar a girar</button>
+    <button onclick="viewFloorPlan();renderFacadeRoomMenu();document.getElementById('facade-room-menu').style.display='block';document.getElementById('facade-room-menu').open=true;document.getElementById('main-menu').open=false">Seleccionar habitación</button>
+    <select id="floor-count" hidden><option value="3">3 pisos</option></select>
+    </nav></details>
+<div id="reference-view"><img id="reference-img" alt="Referencia del cuarto piso"></div>
+<script>function showReference(src){document.getElementById('reference-view').style.display=src?'block':'none';document.getElementById('hotspots-layer').style.visibility=src?'hidden':'visible';if(src)document.getElementById('reference-img').src=src;}</script>
+<details id="facade-room-menu" style="display:none;position:fixed;right:76px;top:155px;z-index:48;width:280px;background:#10161d;color:#eee;border:1px solid #414750;border-radius:12px;padding:14px;max-height:60vh;overflow:auto"><summary style="cursor:pointer;font-weight:700;color:#e5c158">Seleccionar piso y habitación</summary><div id="facade-room-options" style="padding-top:12px"></div></details>
+<!-- UI OVERLAY LAYER -->
+    <div class="ui-overlay flex flex-col h-full justify-between p-3 sm:p-5">
+
+        <!-- HEADER / NAVBAR -->
+        <header class="interactive-ui bg-dark-900/95 backdrop-blur-md border border-dark-700/80 rounded-2xl p-3 sm:px-6 sm:py-3 shadow-2xl flex items-center justify-between">
+            <div class="flex items-center space-x-3">
+                <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-gold-600 to-gold-400 flex items-center justify-center text-dark-900 font-extrabold text-xl shadow-lg shadow-gold-500/20">
+                    <i class="fa-solid fa-hotel"></i>
+                </div>
+                <div>
+                    <span class="text-base sm:text-lg font-extrabold tracking-wider text-slate-100 block leading-tight">HOTAL EMMALU · VISTA 3D</span>
+                    <span class="text-[10px] sm:text-xs text-gold-400 font-semibold tracking-widest uppercase">Fachada según referencia · 3 pisos · Distribución del plano</span>
+                </div>
+            </div>
+
+            <!-- Mode Switcher -->
+            <div class="bg-dark-950 p-1 rounded-xl border border-dark-700/80 flex space-x-1 shadow-inner">
+                <button id="btn-mode-guest" onclick="setMode('guest')" class="px-3 py-1.5 sm:px-4 sm:py-2 rounded-lg text-xs sm:text-sm font-semibold transition-all flex items-center space-x-2 bg-gradient-to-r from-gold-500 to-gold-600 text-dark-900 shadow-md">
+                    <i class="fa-solid fa-cubes"></i>
+                    <span class="hidden md:inline">Vista Autoservicio / 3D</span>
+                </button>
+                <button id="btn-mode-reception" onclick="setMode('reception')" class="px-3 py-1.5 sm:px-4 sm:py-2 rounded-lg text-xs sm:text-sm font-medium text-slate-400 hover:text-slate-100 transition-all flex items-center space-x-2">
+                    <i class="fa-solid fa-concierge-bell"></i>
+                    <span class="hidden md:inline">Modo Recepción</span>
+                    <span class="inline-flex items-center px-1.5 py-0.5 text-[10px] font-bold text-emerald-300 bg-emerald-950 border border-emerald-500/30 rounded-full">Live</span>
+                </button>
+            </div>
+        </header>
+
+        <!-- FLOATING HOTSPOTS CONTAINER -->
+        <div id="hotspots-layer" class="absolute inset-0 pointer-events-none overflow-hidden z-20"></div>
+
+        <!-- CAMERA CONTROL PAD -->
+        <div class="interactive-ui absolute right-4 top-24 flex flex-col space-y-2 z-30">
+            <button onclick="zoomCamera(-3)" title="Zoom In" class="w-10 h-10 rounded-xl bg-dark-900/90 border border-dark-700 text-gold-400 hover:bg-gold-500 hover:text-dark-900 transition-all flex items-center justify-center shadow-lg font-bold">
+                <i class="fa-solid fa-plus"></i>
+            </button>
+            <button onclick="zoomCamera(3)" title="Zoom Out" class="w-10 h-10 rounded-xl bg-dark-900/90 border border-dark-700 text-gold-400 hover:bg-gold-500 hover:text-dark-900 transition-all flex items-center justify-center shadow-lg font-bold">
+                <i class="fa-solid fa-minus"></i>
+            </button>
+            <button onclick="resetCameraView()" title="Vista General Isométrica" class="w-10 h-10 rounded-xl bg-dark-900/90 border border-dark-700 text-gold-400 hover:bg-gold-500 hover:text-dark-900 transition-all flex items-center justify-center shadow-lg">
+                <i class="fa-solid fa-rotate-left"></i>
+            </button>
+        </div>
+
+        <!-- BOTTOM INSPECTOR PANEL -->
+        <div id="panel-guest-mode" class="interactive-ui grid grid-cols-1 md:grid-cols-3 gap-4 items-end max-w-7xl w-full mx-auto">
+            
+            <!-- Room Info Card -->
+            <div class="bg-dark-900/95 backdrop-blur-md border border-dark-700 rounded-2xl p-4 shadow-2xl space-y-3 md:col-span-1">
+                <div class="flex items-center justify-between border-b border-dark-800 pb-2">
+                    <span id="room-status-badge" class="px-2.5 py-0.5 rounded-full text-xs font-bold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
+                        Disponible
+                    </span>
+                    <span id="room-orientation-badge" class="text-[11px] text-blue-400 bg-blue-500/10 px-2 py-0.5 rounded border border-blue-500/20 font-semibold">
+                        <i class="fa-solid fa-compass mr-1"></i> Ubicación según fotografía
+                    </span>
+                </div>
+
+                <div>
+                    <span id="room-id-tag" class="text-xs font-bold text-gold-400 tracking-widest uppercase block">Ejes A-B / 7-8</span>
+                    <h3 id="room-title" class="text-lg font-extrabold text-white">Dormitorio 1 (Frontal Izq)</h3>
+                    <p id="room-desc" class="text-slate-300 text-xs mt-1 leading-relaxed">
+                        Suite frontal con cama matrimonial king, mesa de noche, baño privado en suite con mampara de ducha de cristal y acabados en madera fina.
+                    </p>
+                </div>
+
+                <!-- Exact Blueprint Metrics -->
+                <div class="grid grid-cols-2 gap-2 text-[11px]">
+                    <div class="bg-dark-950 p-2 rounded-xl border border-dark-800">
+                        <span class="text-slate-400 block text-[9px] uppercase font-bold">Medidas del código · por verificar</span>
+                        <span id="spec-dim" class="font-bold text-white">3.67m x 3.60m</span>
+                    </div>
+                    <div class="bg-dark-950 p-2 rounded-xl border border-dark-800">
+                        <span class="text-slate-400 block text-[9px] uppercase font-bold">Acabados e Implementos</span>
+                        <span id="spec-furniture" class="font-bold text-amber-400">Piso Cerámico + Baño Suite + Cama King</span>
+                    </div>
+                </div>
+
+                <div class="pt-2 flex items-center gap-2">
+                    <button id="btn-zoom-room" onclick="zoomToActiveRoom()" class="flex-1 py-2.5 bg-gradient-to-r from-gold-500 to-gold-600 hover:from-gold-400 hover:to-gold-500 text-dark-900 font-extrabold rounded-xl shadow-lg shadow-gold-500/20 transition-all text-xs flex items-center justify-center gap-2">
+                        <i class="fa-solid fa-magnifying-glass-plus"></i>
+                        <span>Inspeccionar 3D</span>
+                    </button>
+                    <button onclick="openCheckInModal()" class="py-2.5 px-3 bg-dark-950 hover:bg-dark-800 border border-gold-500/40 text-gold-400 font-bold rounded-xl transition-all text-xs flex items-center gap-1.5">
+                        <i class="fa-solid fa-qrcode"></i>
+                        <span>Reservar</span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Quick Room Selector Bar -->
+            <div class="bg-dark-900/95 backdrop-blur-md border border-dark-700 rounded-2xl p-3 shadow-2xl md:col-span-2 flex flex-col justify-between space-y-2">
+                <div class="flex items-center justify-between text-xs font-bold text-slate-300">
+                    <span class="flex items-center gap-2">
+                        <i class="fa-solid fa-map text-gold-400"></i>
+                        Habitaciones y ambientes del piso seleccionado
+                    </span>
+                    <span class="text-[10px] text-slate-400">Piso Cerámico Beige • Muros Gris Titanio</span>
+                </div>
+
+                <div id="room-buttons-list" class="flex flex-wrap gap-1.5">
+                    <!-- Populated dynamically via JS -->
+                </div>
+            </div>
+        </div>
+
+        <!-- RECEPTION MODE DASHBOARD -->
+        <div id="panel-reception-mode" class="interactive-ui hidden max-w-6xl w-full mx-auto bg-dark-900/95 backdrop-blur-xl border border-dark-700 rounded-2xl p-5 shadow-2xl space-y-4">
+            <div class="flex items-center justify-between border-b border-dark-800 pb-3">
+                <div>
+                    <h2 class="text-base font-extrabold text-white flex items-center gap-2">
+                        <i class="fa-solid fa-bell-concierge text-gold-400"></i>
+                        Gestión de recepción · Piso seleccionado
+                    </h2>
+                    <p class="text-xs text-slate-400">Vista arquitectónica en 3D en tiempo real.</p>
+                </div>
+                <button onclick="setMode('guest')" class="px-3 py-1.5 bg-dark-800 hover:bg-dark-700 text-slate-300 rounded-xl text-xs font-semibold border border-dark-700">
+                    <i class="fa-solid fa-xmark mr-1"></i> Cerrar Panel
+                </button>
+            </div>
+
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-3 text-xs">
+                <div class="bg-dark-950 p-3 rounded-xl border border-dark-800">
+                    <span class="text-slate-400 font-semibold block">Área Útil Construida</span>
+                    <span class="text-xl font-black text-white">221.4 m²</span>
+                </div>
+                <div class="bg-dark-950 p-3 rounded-xl border border-dark-800">
+                    <span class="text-emerald-400 font-semibold block">Habitaciones Libres</span>
+                    <span class="text-xl font-black text-emerald-400">3 Disponibles</span>
+                </div>
+                <div class="bg-dark-950 p-3 rounded-xl border border-dark-800">
+                    <span class="text-rose-400 font-semibold block">Habitaciones Ocupadas</span>
+                    <span class="text-xl font-black text-rose-400">2 Ocupadas</span>
+                </div>
+                <div class="bg-dark-950 p-3 rounded-xl border border-dark-800">
+                    <span class="text-amber-400 font-semibold block">Salones Sociales</span>
+                    <span class="text-xl font-black text-amber-400">2 Módulos</span>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3" id="reception-matrix-grid">
+                <!-- Populated via JS -->
+            </div>
+        </div>
     </div>
-  </div>
-</header>
 
-<div class="wrap">
-  <nav class="floors" id="floors" aria-label="Seleccionar piso"></nav>
-  <p class="notice"><strong>Versión de referencia.</strong> Reconstruida a partir del contenido del prototipo original. Colores, forma del edificio y medidas marcadas "por verificar" son provisionales hasta tener el código.</p>
-</div>
-
-<main class="wrap grid">
-  <section class="viewer" id="viewer">
-    <canvas id="scene" tabindex="0" aria-label="Edificio en 3D. Arrastra para girar, toca una habitación para seleccionarla."></canvas>
-    <div class="v-head">
-      <div class="v-title">
-        <h2 id="vTitle">Seleccionar piso y habitación</h2>
-        <p>Fachada según referencia · 3 pisos · Distribución del plano</p>
-      </div>
-      <div class="tools" role="group" aria-label="Control de la vista">
-        <button id="toolRotate" aria-pressed="true">Rotar</button>
-        <button id="toolMove" aria-pressed="false">Mover</button>
-        <button id="toolReset">Centrar</button>
-      </div>
+    <dialog id="booking-dialog" style="margin:auto;width:min(520px,94vw);max-height:90vh;overflow:auto;background:#111820;color:#f1f5f9;border:1px solid #48515a;border-radius:18px;padding:24px;z-index:100">
+    <form id="booking-form"><button type="button" onclick="document.getElementById('booking-dialog').close()" style="float:right;padding:5px 10px">Cerrar</button>
+    <h2 style="font-size:22px;font-weight:700">Reserva tu habitación</h2><p id="booking-room" style="color:#e5c158;margin:8px 0"></p>
+    <p style="font-size:12px;color:#b6c2ce">Demostración · tarifas de ejemplo en EUR, editables. No se realizan cobros ni reservas reales.</p>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:18px">
+    <label>Entrada<input id="booking-in" type="date" required onchange="updateBookingTotal()"></label>
+    <label>Hora de entrada<input id="booking-time" type="time" required onchange="updateBookingTotal()"></label><label>¿Cuántas horas necesitas?<input id="booking-hours" type="number" value="3" min="1" max="168" step="1" required oninput="updateBookingTotal()"></label>
+    <label>Huéspedes<select id="booking-guests"><option>1</option><option>2</option></select></label>
+    <label>Precio / hora (€)<input id="booking-price" type="number" min="1" step="0.01" required oninput="updateBookingTotal()"></label>
     </div>
-    <div class="v-foot">
-      <div class="legend"><span><i style="background:var(--ok)"></i>Disponible</span><span><i style="background:var(--busy)"></i>Ocupada</span><span><i style="background:var(--accent)"></i>Seleccionada</span></div>
-      <span class="hint" id="hint">Arrastra para girar · toca una habitación</span>
-    </div>
-    <div class="tip" id="tip" hidden></div>
+    <label style="display:block;margin-top:12px">Nombre del huésped<input id="booking-name" required placeholder="Nombre completo" autocomplete="name"></label>
+    <label style="display:block;margin-top:12px">Forma de pago<select id="booking-payment"><option value="hotel">Pago en el hotel</option><option value="card">Tarjeta · simulación</option><option value="transfer">Transferencia · solicitud de instrucciones</option></select></label>
+    <p style="font-size:12px;color:#b6c2ce;margin-top:8px">No introduzcas datos de tarjeta ni información bancaria. El cobro en línea requiere conectar un proveedor de pagos.</p>
+    <div id="booking-total" style="font-size:20px;font-weight:700;margin:18px 0"></div>
+    <p id="booking-result" role="status" style="margin:12px 0;color:#8edbb8"></p>
+    <button id="booking-submit" type="submit" style="width:100%;padding:13px;background:#d4af37;color:#111;font-weight:700;border-radius:10px">Confirmar reserva de prueba</button>
+    </form></dialog>
+    <style>#booking-dialog::backdrop{background:rgba(0,0,0,.65)}#booking-form input,#booking-form select{display:block;width:100%;padding:10px;margin-top:5px;background:#25313e;color:white;border:1px solid #56616b;border-radius:7px}#booking-form label{font-size:13px}</style>
+    <!-- THREE.JS 3D ENGINE SCRIPT -->
+    <script>
+        const blueprintRooms = {
+            "dorm1_left": {
+                id: "dorm1_left",
+                name: "Dormitorio 1 (Frontal Izq)",
+                axis: "Ejes A-B / 7-8",
+                dim: "3.67m x 3.60m",
+                status: "available",
+                desc: "Habitación principal de fachada con baño privado SS.HH. en suite, mampara de ducha de cristal, cama king y veladores.",
+                furniture: "Cama King + Baño Suite + Veladores",
+                pos3D: { x: -3.0, y: 0.5, z: -6.8 },
+                size3D: { w: 5.2, d: 4.2 }
+            },
+            "dorm1_right": {
+                id: "dorm1_right",
+                name: "Dormitorio 1 (Frontal Der)",
+                axis: "Ejes B-C / 7-8",
+                dim: "4.19m x 3.90m",
+                status: "occupied",
+                desc: "Amplio dormitorio principal derecho con ropero empotrado, baño SS.HH., edredón azul y ventilación exterior.",
+                furniture: "Cama King + Armario + Baño privado",
+                pos3D: { x: 3.0, y: 0.5, z: -6.8 },
+                size3D: { w: 5.5, d: 4.2 }
+            },
+            "tragaluces_hall": {
+                id: "tragaluces_hall",
+                name: "Estar Central & Tragaluces",
+                axis: "Ejes A-C / 5-7",
+                dim: "5.87m x 2.97m",
+                status: "available",
+                desc: "Hall de distribución con dos tragaluces centrales con marco de vidrio, comedor y mueble kitchenette de cocina.",
+                furniture: "Juego de Comedor + Sofá + Tragaluces",
+                pos3D: { x: 0.0, y: 0.5, z: -2.8 },
+                size3D: { w: 11.0, d: 3.8 }
+            },
+            "stairs_core": {
+                id: "stairs_core",
+                name: "Núcleo de Escaleras",
+                axis: "Ejes A-B / 3-5",
+                dim: "2.55m x 4.21m",
+                status: "available",
+                desc: "Escalera principal de concreto vista en corte con pasamanos de tubulares metálicos negros y descansos intermedios.",
+                furniture: "Escalera Doble Tramo + Barandales",
+                pos3D: { x: -3.6, y: 0.5, z: 1.8 },
+                size3D: { w: 4.2, d: 4.2 }
+            },
+            "dorm2_center": {
+                id: "dorm2_center",
+                name: "Dormitorio 2 (Central)",
+                axis: "Ejes B-C / 3-5",
+                dim: "3.31m x 4.11m",
+                status: "available",
+                desc: "Dormitorio interior privado con cama de 2 plazas, respaldar de madera, estudio contiguo y lavandería.",
+                furniture: "Cama Matrimonial + Veladores",
+                pos3D: { x: 1.2, y: 0.5, z: 1.8 },
+                size3D: { w: 4.8, d: 4.5 }
+            },
+            "estudio_suite": {
+                id: "estudio_suite",
+                name: "Estudio & Lavandería",
+                axis: "Ejes B-C / 3-4",
+                dim: "2.20m x 3.35m",
+                status: "available",
+                desc: "Área de trabajo privada con escritorio, silla giratoria, laptop y lavandería integrada con lavadora.",
+                furniture: "Escritorio + Lavadora + SS.HH.",
+                pos3D: { x: 4.2, y: 0.5, z: 1.8 },
+                size3D: { w: 3.2, d: 4.2 }
+            },
+            "salon_social_sur": {
+                id: "salon_social_sur",
+                name: "Gran Salón Social (Sur)",
+                axis: "Ejes A-B / 1-3",
+                dim: "5.87m x 4.12m",
+                status: "occupied",
+                desc: "Amplia sala de estar y comedor principal con mesa de 6 sillas, sofá en 'L' blanco, mesa de centro y mueble de TV.",
+                furniture: "Comedor 6 Sillas + Sofá L + TV",
+                pos3D: { x: -3.0, y: 0.5, z: 6.5 },
+                size3D: { w: 5.5, d: 5.2 }
+            },
+            "dorm1_south": {
+                id: "dorm1_south",
+                name: "Dormitorio 1 (Posterior)",
+                axis: "Ejes B-C / 1-3",
+                dim: "3.72m x 4.12m",
+                status: "available",
+                desc: "Habitación posterior con balcón exterior, baño privado en suite, cama King y ventanales correderos.",
+                furniture: "Cama King + Balcón + SS.HH. Privado",
+                pos3D: { x: 3.2, y: 0.5, z: 6.5 },
+                size3D: { w: 5.0, d: 5.2 }
+            }
+        };
 
-    <section class="reception" id="reception" hidden aria-label="Panel de recepción">
-      <header>
-        <div><h3>Gestión de recepción · Piso seleccionado</h3><p class="sub">Vista arquitectónica en 3D en tiempo real</p></div>
-        <button class="close" id="closeReception" aria-label="Cerrar panel">✕</button>
-      </header>
-      <div class="stats">
-        <div class="stat"><b>221.4 m²</b><span>Área útil construida</span></div>
-        <div class="stat"><b id="stHalls">2</b><span>Salones sociales</span></div>
-        <div class="stat free"><b id="stFree">3</b><span>Habitaciones libres</span></div>
-        <div class="stat busy"><b id="stBusy">2</b><span>Habitaciones ocupadas</span></div>
-      </div>
-      <ul class="roomlist" id="roomList"></ul>
-    </section>
-  </section>
 
-  <aside class="side">
-    <article class="card" id="roomCard"></article>
+        Object.assign(blueprintRooms.dorm1_left,{pos3D:{x:-2.55,y:.5,z:-10.1},size3D:{w:3.2,d:3.6},name:'Dormitorio superior izquierdo'});
+        Object.assign(blueprintRooms.dorm1_right,{pos3D:{x:3.75,y:.5,z:-10.1},size3D:{w:4,d:3.9},name:'Dormitorio superior derecho'});
+        Object.assign(blueprintRooms.tragaluces_hall,{pos3D:{x:0,y:.5,z:-6.2},size3D:{w:1.1,d:3.2},name:'Pasillo y patios de luz'});
+        Object.assign(blueprintRooms.stairs_core,{pos3D:{x:-4.3,y:.5,z:1},size3D:{w:2.6,d:4},name:'Escaleras y acceso'});
+        Object.assign(blueprintRooms.dorm2_center,{pos3D:{x:.7,y:.5,z:.8},size3D:{w:3.9,d:3.6},name:'Dormitorio central'});
+        Object.assign(blueprintRooms.estudio_suite,{pos3D:{x:4.4,y:.5,z:.8},size3D:{w:2.6,d:3.6},name:'Estudio'});
+        Object.assign(blueprintRooms.salon_social_sur,{pos3D:{x:-3,y:.5,z:8.2},size3D:{w:5,d:5.4},name:'Salón social y balcón'});
+        Object.assign(blueprintRooms.dorm1_south,{pos3D:{x:4,y:.5,z:9},size3D:{w:3.7,d:4.4},name:'Dormitorio junto a fachada',desc:'Dormitorio de la esquina inferior derecha del plano, junto al baño longitudinal. El balcón está frente al salón social.'});
 
-    <article class="card" id="bookCard">
-      <div class="eyebrow">Reserva de prueba</div>
-      <h3 style="font-size:20px;margin-top:2px" id="bookTitle">Reservar habitación</h3>
-      <p class="demo-note">Tarifas de ejemplo en EUR, editables. No se hacen cobros ni reservas reales.</p>
-      <form class="book" id="bookForm" novalidate>
-        <label>Hora de entrada<input type="time" id="fIn" value="15:00"></label>
-        <label>¿Cuántas horas necesitas?<input type="number" id="fHours" min="1" max="72" value="4"></label>
-        <label>Huéspedes<select id="fGuests"><option value="1">1</option><option value="2" selected>2</option></select></label>
-        <label>Precio por hora (€)<input type="number" id="fPrice" min="0" step="0.5" value="18"></label>
-        <label class="full">Nombre del huésped<input type="text" id="fName" placeholder="Ej. Ana Torres" autocomplete="off"></label>
-        <label class="full">Forma de pago
-          <select id="fPay">
-            <option value="hotel">Pago en el hotel</option>
-            <option value="card">Tarjeta · simulación</option>
-            <option value="transfer">Transferencia · solicitud de instrucciones</option>
-          </select>
-        </label>
-        <p class="warn full">No escribas datos de tarjeta ni bancarios. El pago en línea requiere un proveedor de pagos.</p>
-        <div class="total full"><span>Total estimado</span><b id="fTotal">€72.00</b></div>
-        <button class="btn primary full" id="fSubmit" type="submit">Confirmar reserva de prueba</button>
-        <div class="confirm full" id="fDone" hidden></div>
-      </form>
-    </article>
-  </aside>
-</main>
+        let currentActiveRoomKey = "dorm1_left";
 
-<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-<script>
-(() => {
-  // ---------- Datos ----------
-  // Planta: 15.00 m x 14.76 m ≈ 221.4 m² por piso. Frente del edificio hacia +z.
-  const W = 15, D = 14.76, H = 3.1;
-  const FLOORS = [
-    { n: 1, name: 'Piso 1', sub: 'Recepción y cochera' },
-    { n: 2, name: 'Piso 2', sub: 'Habitaciones' },
-    { n: 3, name: 'Piso 3', sub: 'Habitaciones' },
-  ];
-  const finishes = 'Piso cerámico beige · paredes gris titanio';
-  const SPACES = [
-    { id: 'rec', floor: 1, kind: 'service', name: 'Recepción', pos: 'Frontal centro', x: -3, z: 3.2, w: 6, d: 4.18, desc: 'Mostrador de recepción y lobby de entrada.' },
-    { id: 'park', floor: 1, kind: 'parking', name: 'Cochera', pos: 'Lateral', x: 3, z: -7.38, w: 4.5, d: 14.76, desc: 'Cochera cubierta, 3 plazas.' },
-    { id: 'esc1', floor: 1, kind: 'service', name: 'Escalera', pos: 'Posterior izq', x: -7.5, z: -7.38, w: 3, d: 4, desc: 'Núcleo de escaleras.' },
+        let scene, camera, renderer, controls;
+        let buildingGroup = new THREE.Group();
+        let hotelExterior, hotelSite, facadeStreet;
+        let facadeMode=false;
+        let moveMapMode=true;
+        function toggleDragMode(){
+            moveMapMode=!moveMapMode;
+            controls.mouseButtons.LEFT=moveMapMode?THREE.MOUSE.PAN:THREE.MOUSE.ROTATE;
+            controls.touches.ONE=moveMapMode?THREE.TOUCH.PAN:THREE.TOUCH.ROTATE;
+            document.getElementById('drag-mode').textContent=moveMapMode?'Mover plano · activo (cambiar a girar)':'Mover plano';
+            renderer.domElement.style.cursor=moveMapMode?'grab':'default';
+        }
 
-    { id: 'd1', floor: 2, kind: 'room', name: 'Dormitorio 1', pos: 'Frontal Izq', x: -7.5, z: 3.78, w: 3.67, d: 3.6, status: 'free', verify: true,
-      desc: 'Suite frontal con cama king, velador y baño incorporado con mampara de vidrio y acabados en madera fina.', bed: 'Cama king', bath: 'Baño suite' },
-    { id: 'h1', floor: 2, kind: 'hall', name: 'Salón social A', pos: 'Frontal centro', x: -3.83, z: 3.78, w: 7.66, d: 3.6, desc: 'Módulo de estar para huéspedes.' },
-    { id: 'd2', floor: 2, kind: 'room', name: 'Dormitorio 2', pos: 'Frontal Der', x: 3.83, z: 3.78, w: 3.67, d: 3.6, status: 'busy', verify: true,
-      desc: 'Habitación frontal con cama queen y baño privado.', bed: 'Cama queen', bath: 'Baño privado' },
-    { id: 'd3', floor: 2, kind: 'room', name: 'Dormitorio 3', pos: 'Posterior Izq', x: -4.5, z: -7.38, w: 4, d: 3.8, status: 'free', verify: true,
-      desc: 'Habitación posterior, más silenciosa, con cama doble y baño privado.', bed: 'Cama doble', bath: 'Baño privado' },
-    { id: 'esc2', floor: 2, kind: 'service', name: 'Escalera', pos: 'Posterior izq', x: -7.5, z: -7.38, w: 3, d: 4, desc: 'Núcleo de escaleras.' },
+        let receptionFurniture, garageFurniture;
+        const garageReplacedParts=[];
+        const roomOriginals={};
+        const upperLoungeFurniture=[];
+        let activeHotelFloor=1;
+        const floorRoomStates={};
+        function floorRoomNumber(key){return String(activeHotelFloor)+String(['dorm1_left','dorm1_right','dorm2_center','dorm1_south'].indexOf(key)+1).padStart(2,'0');}
+        function selectHotelFloor(value){
+            activeHotelFloor=Number(value);
+            document.getElementById('active-floor').value=String(activeHotelFloor);
+            blueprintRooms.salon_social_sur.name=activeHotelFloor===1?'Recepción y espera':'Salón social y balcón';
+            blueprintRooms.salon_social_sur.desc=activeHotelFloor===1?'Recepción del hotel con mostrador de atención, puesto de trabajo y zona de espera junto a la fachada.':'Salón social con sala de estar, comedor y balcón.';
+            blueprintRooms.salon_social_sur.furniture=activeHotelFloor===1?'Mostrador + puesto de atención + zona de espera':'Comedor + sofá + balcón';
+            garageFurniture.visible=activeHotelFloor===1;garageReplacedParts.forEach(m=>m.visible=activeHotelFloor!==1);
+            receptionFurniture.visible=activeHotelFloor===1;
+            upperLoungeFurniture.forEach(m=>m.visible=activeHotelFloor!==1);
+            garageFurniture.visible=activeHotelFloor===1;
+            garageReplacedParts.forEach(m=>m.visible=activeHotelFloor!==1);
+            for(const key of ['dorm1_left','dorm1_right','tragaluces_hall','dorm1_south','estudio_suite']){
+                if(!roomOriginals[key])roomOriginals[key]={...blueprintRooms[key]};
+                Object.assign(blueprintRooms[key],roomOriginals[key]);
+                if(activeHotelFloor===1)Object.assign(blueprintRooms[key],{name:key==='dorm1_left'?'Cochera · sector izquierdo':key==='dorm1_right'?'Cochera · sector derecho':key==='dorm1_south'?'Portón y acceso vehicular':key==='estudio_suite'?'Corredor vehicular':'Cochera · circulación',desc:'Acceso por el portón en la antigua habitación 104, corredor lateral hasta la cochera del fondo. Piso gris hasta el límite de las escaleras y la habitación 103.',furniture:'Piso de concreto + plazas de estacionamiento',status:'parking'});
+            }
+            viewFloorPlan();
+            updateHotspotsLayer();
+            selectRoom('dorm1_left');
+            resetCameraView();
+        }
 
-    { id: 'd4', floor: 3, kind: 'room', name: 'Dormitorio 4', pos: 'Frontal Izq', x: -7.5, z: 3.78, w: 3.67, d: 3.6, status: 'busy', verify: true,
-      desc: 'Suite frontal con cama king y baño suite.', bed: 'Cama king', bath: 'Baño suite' },
-    { id: 'd5', floor: 3, kind: 'room', name: 'Dormitorio 5', pos: 'Frontal Der', x: 3.83, z: 3.78, w: 3.67, d: 3.6, status: 'free', verify: true,
-      desc: 'Habitación frontal con cama doble y baño privado.', bed: 'Cama doble', bath: 'Baño privado' },
-    { id: 'h2', floor: 3, kind: 'hall', name: 'Salón social B', pos: 'Posterior', x: -1, z: -7.38, w: 8.5, d: 4.2, desc: 'Terraza techada y sala común.' },
-    { id: 'esc3', floor: 3, kind: 'service', name: 'Escalera', pos: 'Posterior izq', x: -7.5, z: -7.38, w: 3, d: 4, desc: 'Núcleo de escaleras.' },
-  ];
-  const byId = Object.fromEntries(SPACES.map(s => [s.id, s]));
-  const state = { floor: 2, selected: 'd1', mode: 'self', tool: 'rotate' };
+        let raycaster = new THREE.Raycaster();
+        let mouse = new THREE.Vector2();
 
-  // ---------- Utilidades de tema ----------
-  const css = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
-  const col = n => new THREE.Color(css(n) || '#888');
+        let isCamLerp = false;
+        // Target exact isometric angle from the uploaded 3D rendering
+        let targetCamPos = new THREE.Vector3(18, 22, 22);
+        let targetLookAt = new THREE.Vector3(0, 0, 0);
 
-  // ---------- Escena ----------
-  const canvas = document.getElementById('scene');
-  const viewer = document.getElementById('viewer');
-  const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
-  renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
-  const scene = new THREE.Scene();
-  const camera = new THREE.PerspectiveCamera(40, 1, 0.1, 400);
-  scene.add(new THREE.HemisphereLight(0xffffff, 0x8a8a7a, 0.85));
-  const sun = new THREE.DirectionalLight(0xffffff, 0.6); sun.position.set(18, 30, 22); scene.add(sun);
+        function initThreeEngine() {
+            const container = document.getElementById('webgl-canvas-container');
 
-  const ground = new THREE.Mesh(new THREE.PlaneGeometry(80, 80), new THREE.MeshLambertMaterial({ color: 0xcfd3c8 }));
-  ground.rotation.x = -Math.PI / 2; ground.position.y = -0.02; scene.add(ground);
-  const grid = new THREE.GridHelper(40, 40, 0x9aa095, 0xb9bdb2); grid.position.y = 0; scene.add(grid);
+            scene = new THREE.Scene();
+            scene.background = new THREE.Color(0x8fc6ee);
 
-  const building = new THREE.Group(); scene.add(building);
-  const floorGroups = {};
-  const pickables = [];
-  const roomMeshes = {};
+            const aspect = container.clientWidth / container.clientHeight;
+            camera = new THREE.PerspectiveCamera(32, aspect, 0.1, 1000);
+            camera.position.set(18, 22, 22);
 
-  const matSlab = new THREE.MeshLambertMaterial({ color: 0xcdbfa3 });
-  const matFacade = new THREE.MeshLambertMaterial({ color: 0x8f9491, transparent: true, opacity: 0.18, depthWrite: false });
-  const matGlass = new THREE.MeshLambertMaterial({ color: 0x9fb8c4, transparent: true, opacity: 0.45 });
+            renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: "high-performance" });
+            renderer.setSize(container.clientWidth, container.clientHeight);
+            renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5));
+            renderer.outputEncoding = THREE.sRGBEncoding;
+            renderer.toneMapping = THREE.ACESFilmicToneMapping;
+            renderer.toneMappingExposure = 0.9;
+            renderer.shadowMap.enabled = true;
+            renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+            container.appendChild(renderer.domElement);
 
-  FLOORS.forEach(f => {
-    const g = new THREE.Group(); g.position.y = (f.n - 1) * H; building.add(g); floorGroups[f.n] = g;
-    const slab = new THREE.Mesh(new THREE.BoxGeometry(W + 0.3, 0.2, D + 0.3), matSlab); slab.position.y = 0.1; g.add(slab);
-    // fachada exterior translúcida con ventanas en el frente
-    const shell = new THREE.Mesh(new THREE.BoxGeometry(W, H - 0.2, D), matFacade); shell.position.y = 0.2 + (H - 0.2) / 2; shell.userData.shell = true; g.add(shell);
-    const shellEdges = new THREE.LineSegments(new THREE.EdgesGeometry(shell.geometry), new THREE.LineBasicMaterial({ color: 0x6b706c }));
-    shellEdges.position.copy(shell.position); shellEdges.userData.shell = true; g.add(shellEdges);
-    if (f.n > 1) for (let i = 0; i < 4; i++) {
-      const win = new THREE.Mesh(new THREE.BoxGeometry(2.2, 1.5, 0.06), matGlass);
-      win.position.set(-5.6 + i * 3.75, 1.7, D / 2 + 0.03); win.userData.shell = true; g.add(win);
-    } else {
-      const door = new THREE.Mesh(new THREE.BoxGeometry(3.2, 2.4, 0.06), matGlass);
-      door.position.set(-3, 1.4, D / 2 + 0.03); door.userData.shell = true; g.add(door);
-    }
-  });
+            controls = new THREE.OrbitControls(camera, renderer.domElement);
+            controls.enableDamping = true;
+            controls.dampingFactor = 0.085;
+            controls.rotateSpeed = 0.65;
+            controls.zoomSpeed = 0.75;
+            controls.panSpeed = 0.75;
+            controls.screenSpacePanning = true;
+            controls.mouseButtons.LEFT = THREE.MOUSE.PAN;
+            controls.mouseButtons.RIGHT = THREE.MOUSE.ROTATE;
+            controls.touches.ONE = THREE.TOUCH.PAN;
+            renderer.domElement.style.cursor='grab';
+            controls.touches.TWO = THREE.TOUCH.DOLLY_PAN;
+            controls.addEventListener('start',()=>{isCamLerp=false;});
+            renderer.domElement.style.touchAction='none';
+            controls.maxPolarAngle = Math.PI / 2.1;
+            controls.minDistance = 5;
+            controls.maxDistance = 70;
+            controls.target.set(0, 0, 0);
 
-  SPACES.forEach(s => {
-    const g = floorGroups[s.floor];
-    const h = s.kind === 'parking' ? 0.08 : (s.kind === 'service' ? 2.6 : 2.5);
-    const geo = new THREE.BoxGeometry(s.w - 0.12, h, s.d - 0.12);
-    const mat = new THREE.MeshLambertMaterial({ transparent: true, opacity: s.kind === 'parking' ? 1 : 0.82 });
-    const m = new THREE.Mesh(geo, mat);
-    // x,z son la esquina mínima del espacio, en coordenadas del edificio centrado
-    m.position.set(s.x + s.w / 2, 0.2 + h / 2, s.z + s.d / 2);
-    m.userData.id = s.id;
-    const edges = new THREE.LineSegments(new THREE.EdgesGeometry(geo), new THREE.LineBasicMaterial({ color: 0x3d423e }));
-    m.add(edges);
-    g.add(m);
-    roomMeshes[s.id] = m;
-    if (s.kind === 'room' || s.kind === 'hall') pickables.push(m);
-    if (s.kind === 'room') { // cama
-      const bed = new THREE.Mesh(new THREE.BoxGeometry(1.9, 0.5, 2.1), new THREE.MeshLambertMaterial({ color: 0xf2efe8 }));
-      bed.position.set(0, -h / 2 + 0.25, -0.2); m.add(bed);
-    }
-    if (s.kind === 'parking') for (let i = 0; i < 3; i++) {
-      const car = new THREE.Mesh(new THREE.BoxGeometry(1.8, 1.2, 4), new THREE.MeshLambertMaterial({ color: [0x4a5a6a, 0x8a2f2a, 0xd8d6cf][i] }));
-      car.position.set(0, 0.64, -4.3 + i * 4.6); m.add(car);
-    }
-  });
+            // Lighting to mimic realistic rendering Soft Shadows
+            const ambientLight = new THREE.AmbientLight(0xffffff, 0.65);
+            scene.add(ambientLight);
 
-  function paint() {
-    scene.background = col('--scene-bg');
-    const isDark = document.documentElement.dataset.theme === 'dark' || (!document.documentElement.dataset.theme && matchMedia('(prefers-color-scheme: dark)').matches);
-    ground.material.color.set(isDark ? 0x222823 : 0xa9afa2);
-    const ok = col('--ok'), busy = col('--busy'), acc = col('--accent');
-    SPACES.forEach(s => {
-      const m = roomMeshes[s.id];
-      let c;
-      if (s.id === state.selected) c = acc;
-      else if (s.kind === 'room') c = s.status === 'free' ? ok : busy;
-      else if (s.kind === 'hall') c = new THREE.Color(0xc9b99a);
-      else if (s.kind === 'parking') c = new THREE.Color(0x777b77);
-      else c = new THREE.Color(0xb7bab4);
-      m.material.color.copy(c);
-    });
-  }
+            const mainSun = new THREE.DirectionalLight(0xfff8ee, 0.8);
+            mainSun.position.set(15, 30, 15);
+            mainSun.castShadow = true;
+            mainSun.shadow.mapSize.width = 1024;
+            mainSun.shadow.mapSize.height = 1024;
+            mainSun.shadow.bias = -0.0001;
+            scene.add(mainSun);
 
-  function applyFloor() {
-    FLOORS.forEach(f => {
-      const g = floorGroups[f.n];
-      g.visible = f.n <= state.floor; // corte: oculta los pisos de arriba
-      g.children.forEach(ch => { if (ch.userData.shell) ch.visible = f.n !== state.floor; });
-      g.children.forEach(ch => { if (ch.userData.id) ch.material.opacity = f.n === state.floor ? (byId[ch.userData.id].kind === 'parking' ? 1 : 0.85) : 0.25; });
-    });
-    target.y = (state.floor - 1) * H + 1;
-  }
+            const fillLight = new THREE.DirectionalLight(0x93c5fd, 0.4);
+            fillLight.position.set(-15, 20, -15);
+            scene.add(fillLight);
 
-  // ---------- Cámara orbital propia ----------
-  const target = new THREE.Vector3(0, H, 0);
-  const home = { theta: 0.65, phi: 0.95, r: 34 };
-  let orb = { ...home };
-  function placeCamera() {
-    const { theta, phi, r } = orb;
-    camera.position.set(target.x + r * Math.sin(phi) * Math.sin(theta), target.y + r * Math.cos(phi), target.z + r * Math.sin(phi) * Math.cos(theta));
-    camera.lookAt(target);
-  }
-  function resize() {
-    const r = viewer.getBoundingClientRect();
-    renderer.setSize(r.width, r.height, false);
-    camera.aspect = r.width / r.height; camera.updateProjectionMatrix();
-    orb.r = Math.max(orb.r, r.width < 520 ? 44 : 30);
-  }
+            // Construct 3D Rendered Architecture
+            buildRenderedModel3D();
 
-  let drag = null, moved = 0;
-  canvas.addEventListener('pointerdown', e => { drag = { x: e.clientX, y: e.clientY }; moved = 0; canvas.setPointerCapture(e.pointerId); canvas.classList.add('dragging'); });
-  canvas.addEventListener('pointermove', e => {
-    if (!drag) { hover(e); return; }
-    const dx = e.clientX - drag.x, dy = e.clientY - drag.y; drag = { x: e.clientX, y: e.clientY }; moved += Math.abs(dx) + Math.abs(dy);
-    if (state.tool === 'rotate') {
-      orb.theta -= dx * 0.008; orb.phi = Math.min(1.45, Math.max(0.15, orb.phi - dy * 0.006));
-    } else {
-      const right = new THREE.Vector3().setFromMatrixColumn(camera.matrix, 0);
-      const fwd = new THREE.Vector3().crossVectors(new THREE.Vector3(0, 1, 0), right);
-      target.addScaledVector(right, -dx * 0.04).addScaledVector(fwd, dy * 0.04);
-    }
-  });
-  const endDrag = e => { if (drag && moved < 6) pick(e); drag = null; canvas.classList.remove('dragging'); };
-  canvas.addEventListener('pointerup', endDrag);
-  canvas.addEventListener('pointercancel', () => { drag = null; canvas.classList.remove('dragging'); });
-  canvas.addEventListener('wheel', e => { e.preventDefault(); orb.r = Math.min(80, Math.max(14, orb.r * (1 + Math.sign(e.deltaY) * 0.08))); }, { passive: false });
-  canvas.addEventListener('pointerleave', () => tip.hidden = true);
+            window.addEventListener('resize', onWindowResize);
+            let pointerStart=null;
+            renderer.domElement.addEventListener('pointerdown',e=>{if(moveMapMode)renderer.domElement.style.cursor='grabbing';pointerStart={x:e.clientX,y:e.clientY,id:e.pointerId,time:performance.now()};});
+            renderer.domElement.addEventListener('pointerup',e=>{
+                if(pointerStart && e.pointerId===pointerStart.id && Math.hypot(e.clientX-pointerStart.x,e.clientY-pointerStart.y)<5 && performance.now()-pointerStart.time<500 && e.button===0)onPointerClick(e);
+                pointerStart=null;if(moveMapMode)renderer.domElement.style.cursor='grab';
+            });
+            renderer.domElement.addEventListener('pointercancel',()=>{pointerStart=null;});
 
-  const ray = new THREE.Raycaster(), ndc = new THREE.Vector2();
-  function hitAt(e) {
-    const r = canvas.getBoundingClientRect();
-    ndc.set(((e.clientX - r.left) / r.width) * 2 - 1, -((e.clientY - r.top) / r.height) * 2 + 1);
-    ray.setFromCamera(ndc, camera);
-    const vis = pickables.filter(m => byId[m.userData.id].floor === state.floor);
-    const hit = ray.intersectObjects(vis, false)[0];
-    return hit ? { id: hit.object.userData.id, x: e.clientX - r.left, y: e.clientY - r.top } : null;
-  }
-  const tip = document.getElementById('tip');
-  function hover(e) {
-    const h = hitAt(e);
-    if (!h) { tip.hidden = true; return; }
-    const s = byId[h.id];
-    tip.textContent = s.name + (s.kind === 'room' ? ' · ' + (s.status === 'free' ? 'Disponible' : 'Ocupada') : '');
-    tip.style.left = h.x + 'px'; tip.style.top = h.y + 'px'; tip.hidden = false;
-  }
-  function pick(e) { const h = hitAt(e); if (h) select(h.id); }
+            animateLoop();
+        }
 
-  // ---------- UI ----------
-  const floorsNav = document.getElementById('floors');
-  function renderFloors() {
-    floorsNav.innerHTML = FLOORS.map(f => `<button class="floor-btn" data-f="${f.n}" aria-pressed="${f.n === state.floor}">${f.name} <small>${f.sub}</small></button>`).join('');
-  }
-  floorsNav.addEventListener('click', e => {
-    const b = e.target.closest('[data-f]'); if (!b) return;
-    state.floor = +b.dataset.f;
-    const first = SPACES.find(s => s.floor === state.floor && (s.kind === 'room' || s.kind === 'hall')) || SPACES.find(s => s.floor === state.floor);
-    state.selected = first.id;
-    renderFloors(); applyFloor(); update();
-  });
-  document.getElementById('menuBtn').addEventListener('click', e => {
-    floorsNav.hidden = !floorsNav.hidden; e.currentTarget.setAttribute('aria-expanded', String(!floorsNav.hidden));
-  });
+        function buildRenderedModel3D() {
+            scene.remove(buildingGroup);
+            buildingGroup = new THREE.Group();
+            // Coordinates traced from the original photograph. Not surveyed dimensions.
+            const wallMat = new THREE.MeshStandardMaterial({color:0xd7d4cd,roughness:.9});
+            const capMat = new THREE.MeshStandardMaterial({color:0x41454b});
+            const tile = new THREE.MeshStandardMaterial({color:0xc8bda9,roughness:.85});
+            const wood = new THREE.MeshStandardMaterial({color:0x956a40,roughness:.8});
+            const white = new THREE.MeshStandardMaterial({color:0xe7e7df,roughness:.8});
+            const blue = new THREE.MeshStandardMaterial({color:0x788d9e,roughness:.9});
+            const glass = new THREE.MeshStandardMaterial({color:0x91bbc4,transparent:true,opacity:.4});
+            const wet = new THREE.MeshStandardMaterial({color:0x829391,roughness:.8});
+            const shaft = new THREE.MeshStandardMaterial({color:0x202b31,roughness:1});
+            const X = u => (u-357)/31.4, Z = v => (v-525)/31.4;
+            function box(x1,z1,x2,z2,h,mat,y=0) {
+                const m=new THREE.Mesh(new THREE.BoxGeometry(Math.abs(x2-x1)/31.4,h,Math.abs(z2-z1)/31.4),mat);
+                m.position.set(X((x1+x2)/2),y+h/2,Z((z1+z2)/2));m.castShadow=true;m.receiveShadow=true;buildingGroup.add(m);return m;
+            }
+            function wall(x1,z1,x2,z2,h=1.18){
+                const dx=x2-x1,dz=z2-z1,len=Math.hypot(dx,dz)/31.4;
+                const g=new THREE.Group();g.position.set(X((x1+x2)/2),0,Z((z1+z2)/2));g.rotation.y=-Math.atan2(dz,dx);
+                const m=new THREE.Mesh(new THREE.BoxGeometry(len,h,.13),wallMat);m.position.y=h/2;m.castShadow=true;m.receiveShadow=true;g.add(m);
+                const c=new THREE.Mesh(new THREE.BoxGeometry(len+.015,.035,.15),capMat);c.position.y=h+.017;g.add(c);buildingGroup.add(g);
+            }
+            function door(x,z,vertical=false){const m=box(x,z,x+25,z+3,.78,wood); if(vertical){m.rotation.y=Math.PI/2;} }
+            function windowPane(x1,z1,x2,z2){wall(x1,z1,x2,z2,.34);const dx=x2-x1,dz=z2-z1;const m=new THREE.Mesh(new THREE.BoxGeometry(Math.hypot(dx,dz)/31.4,.6,.045),glass);m.position.set(X((x1+x2)/2),.68,Z((z1+z2)/2));m.rotation.y=-Math.atan2(dz,dx);buildingGroup.add(m);}
+            // Separate slabs leave the two light wells open.
+            box(169,151,543,286,.16,tile,-.16);box(169,286,228,371,.16,tile,-.16);box(328,286,380,371,.16,tile,-.16);box(480,286,543,371,.16,tile,-.16);box(169,371,543,896,.16,tile,-.16);
+            box(228,286,328,371,.04,shaft,-1.3);box(380,286,480,371,.04,shaft,-1.3);
+            // Original envelope, with openings at the two rear bedrooms and facade.
+            wall(169,151,169,896);wall(543,151,543,896);
+            wall(169,151,224,151);windowPane(224,151,314,151);wall(314,151,415,151);windowPane(415,151,534,151);wall(534,151,543,151);
+            wall(169,896,183,896);windowPane(183,896,345,896);wall(345,896,418,896);windowPane(418,896,534,896);wall(534,896,543,896);
+            // Back left flat: bathroom, bedroom, entry hall, light well, living and kitchenette.
+            wall(219,151,219,246);wall(169,246,200,246);wall(215,246,227,246);wall(227,246,227,282);
+            wall(328,151,328,246);wall(328,246,348,246);wall(348,246,348,448);
+            wall(227,282,328,282);wall(228,282,228,371);wall(328,282,328,371);wall(228,371,328,371);
+            wall(169,371,202,371);wall(222,371,228,371);wall(169,485,267,485);wall(267,445,267,485);
+            // Back right flat and bathroom.
+            wall(361,151,361,246);wall(409,151,409,246);wall(361,246,383,246);wall(402,246,409,246);
+            wall(409,246,409,283);wall(409,283,543,283);
+            wall(380,286,380,371);wall(480,286,480,371);wall(380,371,480,371);
+            wall(480,286,480,292);wall(480,354,480,371);
+            wall(348,485,456,485);wall(482,485,543,485);
+            // Shared stairs and landing at left center.
+            wall(169,491,266,491);wall(266,491,266,611);wall(169,615,266,615);wall(169,657,268,657);
+            for(let i=0;i<11;i++)box(174,502+i*9,215,510+i*9,.10,wallMat,-1.4+i*.13);
+            for(let i=0;i<11;i++)box(223,502+i*9,264,510+i*9,.10,wallMat,1.4-i*.13);
+            box(174,599,264,612,.12,wallMat);wall(218,501,218,600,.6);
+            // Central bedroom and study.
+            wall(316,489,316,614);wall(316,489,451,489);wall(451,489,451,614);
+            wall(316,614,414,614);wall(438,614,451,614);
+            wall(451,614,465,614);wall(487,614,543,614);
+            // Kitchen, shared bathroom, laundry and front bedroom suite.
+            wall(316,615,316,663);wall(316,684,316,704);wall(414,615,414,691);
+            wall(451,615,451,642);wall(451,660,451,669);wall(451,661,543,661);
+            wall(451,669,451,698);wall(451,722,451,747);wall(451,747,543,747);
+            wall(354,740,414,740);wall(354,740,354,894);wall(414,740,414,765);wall(414,790,414,896);
+            // Balcony at the front left.
+            wall(169,856,202,856,.35);windowPane(202,856,338,856);wall(338,856,354,856,.35);wall(169,896,306,896,.6);wall(306,896,306,908,.6);wall(306,908,354,908,.6);
+            // Fixtures positioned according to the photograph.
+            function bath(x,z,w=42,d=90){
+                box(x,z,x+w,z+d,.025,wet,.015);
+                box(x+3,z+3,x+w-3,z+28,.06,white,.03);
+                const pane=box(x+3,z+29,x+w-3,z+30,.75,glass);
+                box(x+5,z+42,x+19,z+55,.48,white);
+                const toilet=new THREE.Mesh(new THREE.CylinderGeometry(.20,.17,.35,20),white);toilet.position.set(X(x+15),.23,Z(z+74));buildingGroup.add(toilet);
+            }
+            bath(173,155,42,88);bath(365,155,40,88);bath(455,619,83,38);bath(359,780,49,108);
+            function bed(x,z,mat){const g=createRenderBed(wood,mat);g.scale.set(.77,1,.95);g.position.set(X(x),.13,Z(z));buildingGroup.add(g);box(x-25,z-32,x+25,z-28,.65,wood);box(x-21,z-25,x-3,z-13,.12,white,.52);box(x+3,z-25,x+21,z-13,.12,white,.52);}
+            bed(274,202,white);bed(475,209,blue);bed(381,552,white);bed(479,831,blue);
+            function kitchen(x,z,w,d){box(x,z,x+w,z+d,.82,wood);box(x-1,z-1,x+w+1,z+d+1,.045,white,.82);const stove=box(x+2,z+3,x+w-2,z+19,.025,capMat,.87);}
+            kitchen(305,376,19,64);kitchen(518,381,21,88);kitchen(339,620,68,20);kitchen(389,640,18,53);
+            box(455,699,512,719,.78,wood);box(514,678,539,705,.82,white);box(519,681,536,699,.04,capMat,.84);
+            box(479,535,534,555,.72,wood);box(499,563,516,580,.4,blue);
+            function sofa(x,z){const g=createRenderLSofa(white);g.position.set(X(x),.1,Z(z));g.scale.set(.85,1,.85);buildingGroup.add(g);}
+            sofa(209,425);
+            const loungeStart=buildingGroup.children.length;
+            sofa(210,817);
+            upperLoungeFurniture.push(...buildingGroup.children.slice(loungeStart));
+            sofa(414,429);
+            const dining=createRenderDining(wood,white);dining.position.set(X(252),.1,Z(753));dining.scale.set(.9,1,.9);buildingGroup.add(dining);upperLoungeFurniture.push(dining);
+            const dining2=createRenderDining(wood,white);dining2.position.set(X(482),.1,Z(424));dining2.scale.set(.65,1,.65);buildingGroup.add(dining2);
+            // Reception occupies the social lounge only on the first floor.
+            const receptionStart=buildingGroup.children.length;
+            box(185,745,264,766,.98,wood);box(184,744,265,767,.065,white,.98);
+            box(185,766,204,800,.98,wood);box(184,766,205,801,.065,white,.98);
+            box(217,748,235,751,.35,capMat,1.05);
+            box(242,787,260,803,.43,blue);
+            box(287,800,333,820,.43,blue);box(288,818,333,824,.76,blue);
+            box(293,777,321,792,.38,wood);
+            const receptionParts=buildingGroup.children.slice(receptionStart);
+            receptionFurniture=new THREE.Group();receptionParts.forEach(m=>receptionFurniture.add(m));buildingGroup.add(receptionFurniture);
+            receptionFurniture.visible=true;
+            // First-floor garage replaces the two rear bedrooms and light wells.
+            buildingGroup.updateMatrixWorld(true);
+            buildingGroup.children.forEach(child=>{
+                const bounds=new THREE.Box3().setFromObject(child);
+                const interior=bounds.min.x > -5.82 && bounds.max.x < 5.82;
+                const rear=interior && bounds.max.z < -1.32 && bounds.min.z > -11.85;
+                const driveway=interior && bounds.min.x > 2.99;
+                const gateOpening=bounds.min.x>1.75 && bounds.max.x<5.85 && bounds.min.z>11.55;
+                const size=bounds.getSize(new THREE.Vector3());
+                const oldPartition=bounds.max.z < -1.32 && bounds.min.z > -11.75 && size.y>.12 && !(size.x<.3 && Math.abs(bounds.getCenter(new THREE.Vector3()).x)>5.75);
+                const center=bounds.getCenter(new THREE.Vector3());
+                const lanePartition=bounds.min.x>2.85 && bounds.min.x<5.78 && bounds.max.z> -1.35 && size.y>.12 && !(size.x<.3 && center.x>5.75);
+                // Remove all old partitions and fixtures touching the parking footprint.
+                const parkingInterior=bounds.max.z < -1.12 && bounds.min.z > -11.77 && size.y>.12 && !(size.x<.30 && Math.abs(center.x)>5.75);
+                const parkingCrossWall=size.x>1 && size.z<.35 && center.z < -1.10 && center.z > -11.75;
+                const clearLane=bounds.min.x>2.70 && bounds.max.z> -1.4 && size.y>.12 && !(size.x<.3 && center.x>5.75);
+                const rearDividers=size.x<.35 && size.z>.3 && Math.abs(center.x)<5.65 && bounds.max.z < -1.1 && size.y>.12;
+                if(rear||driveway||gateOpening||oldPartition||lanePartition||parkingInterior||parkingCrossWall||clearLane||rearDividers)garageReplacedParts.push(child);
+            });
+            const garageStart=buildingGroup.children.length;
+            const concreteGarage=new THREE.MeshStandardMaterial({color:0x8d9395,roughness:1});
+            box(172,154,540,482,.045,concreteGarage,.055);
+            box(453,482,540,895,.045,concreteGarage,.055);
+            // Continuous lane from the street gate to rear parking.
 
-  function select(id) {
-    state.selected = id;
-    const s = byId[id];
-    if (s.floor !== state.floor) { state.floor = s.floor; renderFloors(); applyFloor(); }
-    update();
-  }
 
-  const roomCard = document.getElementById('roomCard');
-  function renderCard() {
-    const s = byId[state.selected];
-    if (!s) { roomCard.innerHTML = '<p class="empty">Selecciona una habitación en el modelo.</p>'; return; }
-    const pill = s.kind === 'room'
-      ? `<span class="pill ${s.status}">${s.status === 'free' ? 'Disponible' : 'Ocupada'}</span>`
-      : `<span class="pill hall">${s.kind === 'hall' ? 'Área común' : 'Servicio'}</span>`;
-    const area = (s.w * s.d).toFixed(1);
-    roomCard.innerHTML = `
-      <div class="room-head">
-        <div><div class="eyebrow">${FLOORS[s.floor - 1].name} · ${s.pos}</div><h3>${s.name}</h3></div>${pill}
-      </div>
-      <p class="room-desc">${s.desc}</p>
-      <dl class="specs">
-        <dt>Medidas</dt><dd><span class="mono">${s.w.toFixed(2)} m × ${s.d.toFixed(2)} m</span>${s.verify ? '<span class="verify">por verificar</span>' : ''}</dd>
-        <dt>Área</dt><dd class="mono">${area} m²</dd>
-        ${s.kind === 'room' ? `<dt>Cama</dt><dd>${s.bed}</dd><dt>Baño</dt><dd>${s.bath}</dd>` : ''}
-        <dt>Acabados</dt><dd>${s.kind === 'room' ? 'Piso cerámico + ' + s.bath + ' + ' + s.bed : finishes}</dd>
-        <dt>Ubicación</dt><dd>Ejes A-B / 7-8, según fotografía</dd>
-      </dl>
-      <div class="actions">
-        <button class="btn" id="inspect">Inspeccionar 3D</button>
-        <button class="btn primary" id="reserve" ${s.kind !== 'room' || s.status !== 'free' ? 'disabled' : ''}>Reservar</button>
-      </div>`;
-    roomCard.querySelector('#inspect').onclick = () => focusOn(s);
-    roomCard.querySelector('#reserve').onclick = () => { document.getElementById('fName').focus(); document.getElementById('bookCard').scrollIntoView({ behavior: 'smooth', block: 'start' }); };
-  }
+            // Open sliding gate stacked along the side, leaving clear vehicle access.
+            box(532,850,536,892,1.1,capMat);
+            for(let z=851;z<892;z+=4)box(531,z,532,z+1,1.1,white);
 
-  function focusOn(s) {
-    target.set(s.x + s.w / 2, (s.floor - 1) * H + 1, s.z + s.d / 2);
-    orb.r = 16; orb.phi = 0.75;
-  }
 
-  const fields = ['fHours', 'fPrice', 'fGuests'].map(id => document.getElementById(id));
-  function renderTotal() {
-    const t = (+document.getElementById('fHours').value || 0) * (+document.getElementById('fPrice').value || 0);
-    document.getElementById('fTotal').textContent = '€' + t.toFixed(2);
-  }
-  fields.forEach(f => f.addEventListener('input', renderTotal));
 
-  function renderBooking() {
-    const s = byId[state.selected];
-    const ok = s && s.kind === 'room' && s.status === 'free';
-    document.getElementById('bookTitle').textContent = ok ? 'Reserva tu habitación · ' + s.name : 'Elige una habitación disponible';
-    document.getElementById('fSubmit').disabled = !ok;
-  }
-  document.getElementById('bookForm').addEventListener('submit', e => {
-    e.preventDefault();
-    const s = byId[state.selected];
-    const name = document.getElementById('fName').value.trim() || 'Huésped de prueba';
-    const pay = document.getElementById('fPay').selectedOptions[0].textContent;
-    const done = document.getElementById('fDone');
-    done.textContent = `Reserva de prueba registrada: ${s.name} para ${name}, entrada ${document.getElementById('fIn').value}, ${document.getElementById('fHours').value} h, ${document.getElementById('fTotal').textContent}. ${pay}. Habitación marcada como ocupada.`;
-    done.hidden = false;
-    s.status = 'busy';
-    update();
-  });
+            // Horizontal bays: vehicles run across the width of the lot.
+            const parkingPaint=new THREE.MeshBasicMaterial({color:0xffffff});
+            for(const x of [177,355]){
+                for(const z of [163,248,333])box(x,z,x+145,z+3,.008,parkingPaint,.112);
+                box(x,163,x+3,336,.008,parkingPaint,.112);
+            }
+            for(let i=0;i<4;i++){
+                const c=document.createElement('canvas');c.width=256;c.height=256;
+                const ctx=c.getContext('2d');ctx.fillStyle='white';ctx.textAlign='center';ctx.font='bold 120px sans-serif';ctx.fillText('P'+(i+1),128,170);
+                const mark=new THREE.Mesh(new THREE.PlaneGeometry(.85,.85),new THREE.MeshBasicMaterial({map:new THREE.CanvasTexture(c),transparent:true,depthWrite:false}));
+                mark.rotation.x=-Math.PI/2;mark.position.set(X(i<2?308:486),.124,Z(i%2===0?205:290));buildingGroup.add(mark);
+            }
+            function parkedCar(x,z,color){
+                const car=new THREE.Group();car.position.set(X(x),.13,Z(z));car.rotation.y=Math.PI/2;
+                const paint=new THREE.MeshStandardMaterial({color,metalness:.55,roughness:.27});
+                const rubber=new THREE.MeshStandardMaterial({color:0x191c20,roughness:.95});
+                const chrome=new THREE.MeshStandardMaterial({color:0x9ca6ac,metalness:.9,roughness:.22});
+                const glazing=new THREE.MeshStandardMaterial({color:0x233c50,metalness:.35,roughness:.15});
+                function body(w,h,d,px,py,pz,mat){const m=new THREE.Mesh(new THREE.BoxGeometry(w,h,d),mat);m.position.set(px,py,pz);m.castShadow=true;m.receiveShadow=true;car.add(m);return m;}
+                body(1.78,.48,4.25,0,.55,0,paint);
+                body(1.68,.18,1.08,0,.86,-1.45,paint);
+                body(1.62,.15,.84,0,.83,1.52,paint);
+                // Sloped windshield and rear glass rather than a solid box cabin.
+                body(1.52,.60,1.90,0,1.02,.08,glazing);
+                body(1.48,.10,1.45,0,1.36,.08,paint);
+                const windshield=body(1.51,.62,.05,0,1.06,-.99,glazing);windshield.rotation.x=-.35;
+                const rear=body(1.48,.53,.05,0,1.04,1.03,glazing);rear.rotation.x=.35;
+                for(const side of [-1,1]){
+                    body(.055,.63,.09,side*.78,1.03,.1,paint);
+                    body(.17,.10,.29,side*.95,.96,-.7,paint);
+                    body(.025,.10,1.4,side*.9,.5,0,chrome);
+                    for(const axle of [-1.35,1.35]){
+                        const wheel=new THREE.Mesh(new THREE.CylinderGeometry(.34,.34,.22,24),rubber);wheel.rotation.z=Math.PI/2;wheel.position.set(side*.88,.34,axle);car.add(wheel);
+                        const rim=new THREE.Mesh(new THREE.CylinderGeometry(.21,.21,.23,16),chrome);rim.rotation.z=Math.PI/2;rim.position.copy(wheel.position);car.add(rim);
+                    }
+                }
+                body(1.5,.12,.10,0,.37,-2.15,chrome);body(1.5,.12,.10,0,.37,2.15,chrome);
+                for(const side of [-1,1]){
+                    body(.42,.15,.065,side*.58,.66,-2.15,new THREE.MeshStandardMaterial({color:0xfff3cc,emissive:0x554422}));
+                    body(.42,.15,.065,side*.58,.66,2.15,new THREE.MeshStandardMaterial({color:0xa12b2b}));
+                }
+                body(.45,.14,.065,0,.52,-2.17,white);
+                buildingGroup.add(car);
+            }
+            parkedCar(240,205,0x38576e);parkedCar(240,290,0x9b2833);
+            // Restore room 103's enclosure on the ground floor, with a doorway.
+            wall(316,489,451,489);
+            wall(316,489,316,614);
+            wall(451,489,451,614);
+            wall(316,614,414,614);
+            wall(438,614,451,614);
+            const garageParts=buildingGroup.children.slice(garageStart);
+            garageFurniture=new THREE.Group();garageParts.forEach(m=>garageFurniture.add(m));buildingGroup.add(garageFurniture);
+            // Selectable room surfaces use traced footprints, not the supplied coarse rectangles.
+            Object.values(blueprintRooms).forEach(room=>{const m=new THREE.Mesh(new THREE.PlaneGeometry(room.size3D.w,room.size3D.d),new THREE.MeshBasicMaterial({transparent:true,opacity:0,depthWrite:false,side:THREE.DoubleSide}));m.rotation.x=-Math.PI/2;m.position.set(room.pos3D.x,.04,room.pos3D.z);m.userData.roomKey=room.id;buildingGroup.add(m);});
+            // Keep street scenery separate so it is never duplicated with the floors.
+            const floorChildren=buildingGroup.children.slice();
+            // Illustrative street below the fourth-floor facade.
+            const roadMat=new THREE.MeshStandardMaterial({color:0x42474b,roughness:1});
+            const walkMat=new THREE.MeshStandardMaterial({color:0xaaa79e,roughness:1});
+            box(-700,955,1400,1250,.12,roadMat,-10.8);
+            box(-700,909,1400,955,.15,walkMat,-10.65);
+            box(-700,1250,1400,1300,.15,walkMat,-10.65);
+            for(let x=-650;x<1400;x+=110)box(x,1094,x+55,1098,.015,white,-10.66);
+            const facades=[0xbab5a9,0x969f9e,0xc1b4a5,0xb3b9bd];
+            for(let i=0;i<11;i++){
+                const x=-650+i*185;
+                box(x,1300,x+155,1470,7+(i%3)*2,new THREE.MeshStandardMaterial({color:facades[i%4],roughness:1}),-10.6);
+                for(let floor=0;floor<3;floor++)for(let col=0;col<3;col++)box(x+20+col*43,1298,x+42+col*43,1301,.8,glass,-9.7+floor*2.2);
+            }
+            hotelSite=new THREE.Group();
+            buildingGroup.children.slice().filter(child=>!floorChildren.includes(child)).forEach(child=>hotelSite.add(child));
+            scene.add(hotelSite);
+            scene.add(buildingGroup);
+            rebuildHotel(false);
+        }
 
-  // Recepción
-  const recep = document.getElementById('reception');
-  function setMode(m) {
-    state.mode = m;
-    document.getElementById('modeSelf').setAttribute('aria-pressed', String(m === 'self'));
-    document.getElementById('modeLive').setAttribute('aria-pressed', String(m === 'live'));
-    recep.hidden = m !== 'live';
-  }
-  document.getElementById('modeSelf').onclick = () => setMode('self');
-  document.getElementById('modeLive').onclick = () => setMode('live');
-  document.getElementById('closeReception').onclick = () => setMode('self');
-  function renderReception() {
-    const rooms = SPACES.filter(s => s.kind === 'room');
-    document.getElementById('stFree').textContent = rooms.filter(r => r.status === 'free').length;
-    document.getElementById('stBusy').textContent = rooms.filter(r => r.status === 'busy').length;
-    document.getElementById('stHalls').textContent = SPACES.filter(s => s.kind === 'hall').length + ' módulos';
-    document.getElementById('roomList').innerHTML = rooms.map(r => `<li><span>${r.name} <small style="color:var(--muted)">P${r.floor}</small></span><span><span class="pill ${r.status}">${r.status === 'free' ? 'Libre' : 'Ocupada'}</span> <button data-toggle="${r.id}">Cambiar</button></span></li>`).join('');
-  }
-  document.getElementById('roomList').addEventListener('click', e => {
-    const b = e.target.closest('[data-toggle]'); if (!b) return;
-    const r = byId[b.dataset.toggle]; r.status = r.status === 'free' ? 'busy' : 'free'; update();
-  });
+        /* Furniture Generators matching Render Aesthetics */
+        function createRenderBed(matWood, matSheet) {
+            const g = new THREE.Group();
+            const base = new THREE.Mesh(new THREE.BoxGeometry(2.0, 0.25, 2.0), matWood);
+            const mattress = new THREE.Mesh(new THREE.BoxGeometry(1.85, 0.3, 1.85), matSheet);
+            mattress.position.y = 0.22;
+            const head = new THREE.Mesh(new THREE.BoxGeometry(2.1, 0.7, 0.15), matWood);
+            head.position.set(0, 0.35, -0.95);
+            g.add(base, mattress, head);
+            return g;
+        }
 
-  // Herramientas
-  const tR = document.getElementById('toolRotate'), tM = document.getElementById('toolMove');
-  function setTool(t) { state.tool = t; tR.setAttribute('aria-pressed', String(t === 'rotate')); tM.setAttribute('aria-pressed', String(t === 'move'));
-    document.getElementById('hint').textContent = t === 'rotate' ? 'Arrastra para girar · toca una habitación' : 'Arrastra para mover la vista · toca una habitación'; }
-  tR.onclick = () => setTool('rotate'); tM.onclick = () => setTool('move');
-  document.getElementById('toolReset').onclick = () => { orb = { ...home }; target.set(0, (state.floor - 1) * H + 1, 0); resize(); };
+        function createRenderBath(matGlass, matDarkTile) {
+            const g = new THREE.Group();
+            const glassWall = new THREE.Mesh(new THREE.BoxGeometry(1.3, 1.5, 1.8), matGlass);
+            glassWall.position.y = 0.75;
+            const floor = new THREE.Mesh(new THREE.BoxGeometry(1.25, 0.05, 1.75), matDarkTile);
+            floor.position.y = 0.02;
+            g.add(glassWall, floor);
+            return g;
+        }
 
-  function update() {
-    const s = byId[state.selected];
-    document.getElementById('vTitle').textContent = s ? `${FLOORS[state.floor - 1].name} · ${s.name}` : 'Seleccionar piso y habitación';
-    paint(); renderCard(); renderBooking(); renderReception();
-  }
+        function createRenderLSofa(matFabric) {
+            const g = new THREE.Group();
+            const b1 = new THREE.Mesh(new THREE.BoxGeometry(2.2, 0.35, 0.9), matFabric);
+            b1.position.set(0, 0.18, 0);
+            const b2 = new THREE.Mesh(new THREE.BoxGeometry(0.9, 0.35, 1.4), matFabric);
+            b2.position.set(0.65, 0.18, -0.8);
+            g.add(b1, b2);
+            return g;
+        }
 
-  matchMedia('(prefers-color-scheme: dark)').addEventListener('change', paint);
-  new MutationObserver(paint).observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
-  new ResizeObserver(resize).observe(viewer);
+        function createRenderDining(matWood, matChairs) {
+            const g = new THREE.Group();
+            const table = new THREE.Mesh(new THREE.BoxGeometry(2.0, 0.7, 1.1), matWood);
+            table.position.y = 0.35;
+            g.add(table);
+            for (let i = -0.6; i <= 0.6; i += 0.6) {
+                const c1 = new THREE.Mesh(new THREE.BoxGeometry(0.4, 0.4, 0.4), matChairs);
+                c1.position.set(i, 0.2, 0.8);
+                const c2 = new THREE.Mesh(new THREE.BoxGeometry(0.4, 0.4, 0.4), matChairs);
+                c2.position.set(i, 0.2, -0.8);
+                g.add(c1, c2);
+            }
+            return g;
+        }
 
-  renderFloors(); applyFloor(); resize(); update(); renderTotal();
-  (function loop() { placeCamera(); renderer.render(scene, camera); requestAnimationFrame(loop); })();
-})();
-</script>
+        function updateHotspotsLayer() {
+            const layer = document.getElementById('hotspots-layer');
+            layer.innerHTML = '';
+
+            Object.values(blueprintRooms).forEach(room => {
+                const btn = document.createElement('div');
+                btn.id = `hotspot-${room.id}`;
+
+                let statusBg = 'bg-emerald-500 text-dark-950';
+                if (room.status === 'occupied') statusBg = 'bg-rose-500 text-white';
+
+                btn.className = `room-hotspot interactive-ui px-2.5 py-1 rounded-xl shadow-2xl font-extrabold text-[11px] flex items-center gap-1.5 border border-white/20 backdrop-blur-md ${statusBg}`;
+                btn.innerHTML = `
+                    <i class="fa-solid fa-location-dot"></i>
+                    <span>${room.id.startsWith('dorm') && room.status!=='parking' ? 'Hab. '+floorRoomNumber(room.id) : room.name}</span>
+                `;
+
+                btn.onclick = (e) => {
+                    e.stopPropagation();
+                    selectRoom(room.id);
+                };
+
+                layer.appendChild(btn);
+            });
+        }
+
+        function projectHotspotsToScreen() {
+            if (!camera) return;
+
+            const container = document.getElementById('webgl-canvas-container');
+            const w = container.clientWidth;
+            const h = container.clientHeight;
+
+            Object.values(blueprintRooms).forEach(room => {
+                const el = document.getElementById(`hotspot-${room.id}`);
+                if (!el) return;
+
+                const pos3D = new THREE.Vector3(room.pos3D.x, 1.2, room.pos3D.z);
+                pos3D.project(camera);
+
+                if (pos3D.z > 1) {
+                    el.style.opacity = '0';
+                    return;
+                }
+
+                const x = (pos3D.x * 0.5 + 0.5) * w;
+                const y = (pos3D.y * -0.5 + 0.5) * h;
+
+                el.style.left = '0'; el.style.top = '0';
+                el.style.transform = `translate3d(${x}px,${y+container.offsetTop}px,0) translate(-50%,-50%)`;
+                el.style.opacity = '1';
+            });
+        }
+
+        function selectRoom(key) {
+            if (!blueprintRooms[key]) return;
+            currentActiveRoomKey = key;
+            const room = blueprintRooms[key];
+
+            document.getElementById('room-id-tag').textContent = `PISO ${activeHotelFloor} · ${room.axis}`;
+            document.getElementById('room-title').textContent = `${room.name} · Piso ${activeHotelFloor}${room.id.startsWith('dorm')&&room.status!=='parking'?' · €'+bookingRates[room.id]+'/hora':''}`;
+            document.getElementById('room-desc').textContent = room.desc;
+            document.getElementById('spec-dim').textContent = room.dim;
+            document.getElementById('spec-furniture').textContent = room.furniture;
+
+            document.querySelectorAll('button').forEach(b=>{if(b.textContent.trim()==='Reservar')b.style.display=room.id.startsWith('dorm') && room.status!=='parking'?'':'none';});
+            const badge = document.getElementById('room-status-badge');
+            if (room.status === 'available') {
+                badge.className = 'px-2.5 py-0.5 rounded-full text-xs font-bold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30';
+                badge.textContent = 'Disponible';
+            } else {
+                badge.className = 'px-2.5 py-0.5 rounded-full text-xs font-bold bg-rose-500/20 text-rose-400 border border-rose-500/30';
+                badge.textContent = room.status==='parking'?'Cochera':'Ocupada';
+            }
+
+            targetCamPos.set(room.pos3D.x + 6, 8, room.pos3D.z + 8);
+            targetLookAt.set(room.pos3D.x, 0, room.pos3D.z);
+            isCamLerp = true;
+
+            renderRoomButtons();
+        }
+
+        function zoomToActiveRoom() {
+            const room = blueprintRooms[currentActiveRoomKey];
+            if (!room) return;
+            targetCamPos.set(room.pos3D.x + 3, 4, room.pos3D.z + 4);
+            targetLookAt.set(room.pos3D.x, 0.5, room.pos3D.z);
+            isCamLerp = true;
+        }
+
+
+        function rebuildHotel(openView=true){
+            if(hotelExterior)scene.remove(hotelExterior);
+            hotelExterior=new THREE.Group();
+            const n=Number(document.getElementById('floor-count').value),rise=3.1;
+            const plaster=new THREE.MeshStandardMaterial({color:0xd1cdc2,roughness:.85});
+            const dark=new THREE.MeshStandardMaterial({color:0x303b40,roughness:.7});
+            const bronze=new THREE.MeshStandardMaterial({color:0x8e7452,metalness:.45,roughness:.5});
+            const glass=new THREE.MeshStandardMaterial({color:0x77969e,metalness:.25,roughness:.25,transparent:true,opacity:.65});
+            const ivory=new THREE.MeshStandardMaterial({color:0xe8e0d0,roughness:.8});
+            const width=374/31.4,length=745/31.4,front=(896-525)/31.4;
+            function part(w,h,d,x,y,z,mat){const m=new THREE.Mesh(new THREE.BoxGeometry(w,h,d),mat);m.position.set(x,y,z);m.castShadow=true;m.receiveShadow=true;hotelExterior.add(m);return m;}
+            // Repeated identical floor geometry sits behind an independently modeled envelope.
+            for(let level=0;level<n;level++){
+                const y=level*rise;
+                garageFurniture.visible=level===0;garageReplacedParts.forEach(m=>m.visible=level!==0);
+                receptionFurniture.visible=level===0;
+                upperLoungeFurniture.forEach(m=>m.visible=level!==0);
+                const replica=buildingGroup.clone(true);replica.position.y=y;hotelExterior.add(replica);
+                part(width,.22,length,0,y-.12,0,ivory);
+                part(.18,rise,length,-width/2,y+rise/2,0,plaster);
+                part(.18,rise,length,width/2,y+rise/2,0,plaster);
+                part(width,rise,.16,0,y+rise/2,-length/2,plaster);
+                // Facade based on the supplied reference image, adapted to 3 total floors.
+                const navy=new THREE.MeshStandardMaterial({color:0x14213d,metalness:.3,roughness:.3});
+                const timber=new THREE.MeshStandardMaterial({color:0x95744f,roughness:.95});
+                const concrete=new THREE.MeshStandardMaterial({color:0x92918a,roughness:1});
+                // Strong white right frame and recessed dark bedroom glazing.
+                part(width,.30,.28,0,y+.15,front,ivory);
+                part(1.1,rise,.35,5.43,y+rise/2,front,ivory);
+                part(3.4,.95,.35,3.2,y+.47,front,ivory);
+                part(3.4,.48,.35,3.2,y+rise-.24,front,ivory);
+                part(3.3,1.65,.09,3.2,y+1.78,front-.13,navy);
+                part(.09,1.65,.13,2.05,y+1.78,front-.07,dark);
+                // Full-height warm vertical timber strip.
+                part(1.35,rise,.26,.75,y+rise/2,front+.07,timber);
+                for(let j=0;j<18;j++)part(1.35,.018,.02,.75,y+.08+j*.17,front+.21,bronze);
+                // Concrete strip with small horizontal service windows.
+                part(.75,rise,.24,-.32,y+rise/2,front,concrete);
+                part(.43,.23,.05,-.32,y+1.85,front+.14,navy);
+                // White sign tower at left of the recessed balconies.
+                part(.85,rise,.36,-5.52,y+rise/2,front+.1,ivory);
+                if(level===0){
+                    // Dark stone base, pedestrian entrance and wide metal gate.
+                    part(width,.38,.34,0,.2,front,dark);
+                    part(1.4,2.45,.12,-4.35,1.45,front+.02,dark);
+                    part(3.9,2.45,.12,3.45,1.45,front+.02,dark);
+                    for(let j=0;j<19;j++)part(.035,2.4,.10,1.55+j*.21,1.45,front+.12,bronze);
+                    part(3.05,2.45,.16,-2.05,1.45,front,concrete);
+                    part(1.15,2.25,.12,-1.55,1.35,front+.1,dark);
+                    for(let j=0;j<4;j++)part(.8,.028,.06,-4.35,.65+j*.55,front+.1,bronze);
+                }else{
+                    const bw=level===n-1?4.25:2.3;
+                    const bx=level===n-1?-3.0:-3.85;
+                    part(bw,2.3,.07,bx,y+1.4,front-.32,glass);
+                    for(let j=0;j<5;j++)part(.04,2.35,.1,bx-bw/2+j*bw/4,y+1.4,front-.24,dark);
+                    part(1.3,2.7,.3,-1.35,y+1.4,front,concrete);
+                    part(bw+.15,.16,.85,bx,y+.05,front+.22,ivory);
+                    part(bw,.055,.065,bx,y+1.05,front+.67,dark);
+                    for(let j=0;j<14;j++)part(.035,.94,.035,bx-bw/2+j*bw/13,y+.55,front+.67,dark);
+                    part(bw,.045,.055,bx,y+.16,front+.67,dark);
+                }
+            }
+            // Street context for the exterior, without buildings blocking the facade.
+            facadeStreet=new THREE.Group();
+            const road=new THREE.MeshStandardMaterial({color:0x3d4349,roughness:1});
+            const sidewalk=new THREE.MeshStandardMaterial({color:0xaaa79d,roughness:1});
+            function streetPart(w,h,d,x,y,z,mat){const m=new THREE.Mesh(new THREE.BoxGeometry(w,h,d),mat);m.position.set(x,y,z);m.receiveShadow=true;m.castShadow=true;facadeStreet.add(m);return m;}
+            streetPart(70,.16,10,0,-.38,front+7,road);
+            streetPart(70,.22,2,0,-.17,front+1.5,sidewalk);
+            streetPart(70,.22,2,0,-.17,front+13,sidewalk);
+            streetPart(70,.18,.18,0,-.12,front+2.45,ivory);
+            streetPart(70,.18,.18,0,-.12,front+12.0,ivory);
+            for(let i=-32;i<34;i+=5)streetPart(2.5,.015,.10,i,-.29,front+7,ivory);
+            for(let i=-6;i<0;i++)streetPart(.42,.018,2.7,i*.8,-.285,front+4.1,ivory);
+            // Small planting areas and street lamps leave the entrance visible.
+            const green=new THREE.MeshStandardMaterial({color:0x49654e,roughness:1});
+            for(const x of [-9,9]){
+                streetPart(1.2,.45,.8,x,.1,front+1.4,dark);
+                const crown=new THREE.Mesh(new THREE.SphereGeometry(.65,12,10),green);crown.position.set(x,.9,front+1.4);facadeStreet.add(crown);
+                streetPart(.08,4,.08,x,1.9,front+2.1,bronze);
+                streetPart(.65,.12,.35,x,3.9,front+2.1,ivory);
+            }
+            const carPaint=new THREE.MeshStandardMaterial({color:0x64798a,metalness:.4,roughness:.4});
+            streetPart(4,.65,1.7,10,.3,front+9.4,carPaint);
+            streetPart(2.1,.55,1.5,10,.9,front+9.4,glass);
+            for(const x of [8.8,11.2])for(const z of [front+8.6,front+10.2])streetPart(.6,.6,.18,x,.08,z,dark);
+            // Low-rise neighboring homes flank the hotel, keeping its facade unobstructed.
+            const houseColors=[0xc4b59e,0xb8c4c1,0xd0c4b8,0xbcc0c6,0xc7bbab,0xc2c8b4];
+            const roofMat=new THREE.MeshStandardMaterial({color:0x8e6656,roughness:1});
+            const windowMat=new THREE.MeshStandardMaterial({color:0x526d7e,roughness:.35,metalness:.15});
+            const doorMat=new THREE.MeshStandardMaterial({color:0x71533e,roughness:.85});
+            for(let side of [-1,1])for(let j=0;j<3;j++){
+                const x=side*(10.2+j*8.0),w=7.3,d=11+(j%2)*2,h=j%2===0?5.5:3.2;
+                const homeMat=new THREE.MeshStandardMaterial({color:houseColors[(side===1?3:0)+j],roughness:.95});
+                streetPart(w,h,d,x,h/2-.08,front-d/2-.55,homeMat);
+                streetPart(w+.25,.20,d+.3,x,h,front-d/2-.55,ivory);
+                // Modest pitched roof, ridge parallel to the street.
+                const slope=Math.atan2(.8,d/2),roofLength=Math.hypot(d/2,.8);
+                for(const half of [-1,1]){
+                    const roof=streetPart(w+.4,.13,roofLength+.2,x,h+.45,front-d/2-.55+half*d/4,roofMat);
+                    roof.rotation.x=half*slope;
+                }
+                const face=front-.47;
+                streetPart(1.05,2.2,.10,x-.9,1.1,face,doorMat);
+                streetPart(1.15,.12,.55,x-.9,2.32,face+.12,ivory);
+                for(const wx of [x-2.6,x+1.8]){
+                    streetPart(1.35,1.35,.10,wx,1.65,face,windowMat);
+                    streetPart(1.5,.08,.2,wx,2.36,face+.02,ivory);
+                    streetPart(1.5,.08,.25,wx,.93,face+.02,ivory);
+                    streetPart(.045,1.38,.13,wx,1.65,face+.05,ivory);
+                    if(h>4){
+                        streetPart(1.4,1.3,.10,wx,4.25,face,windowMat);
+                        streetPart(.045,1.35,.13,wx,4.25,face+.06,ivory);
+                        streetPart(1.5,.08,.2,wx,3.55,face+.03,ivory);
+                    }
+                }
+                streetPart(w,.12,.8,x,-.02,front-.05,sidewalk);
+                // Small planters and low boundary walls typical of a residential street.
+                streetPart(1.5,.28,.65,x+2.3,.14,front-.04,bronze);
+                streetPart(1.3,.3,.50,x+2.3,.42,front-.04,green);
+                streetPart(.14,.65,1.1,x-w/2,.3,front-.12,ivory);
+            }
+            // Landscaped horizon and a blue-sky backdrop.
+            const grassMat=new THREE.MeshStandardMaterial({color:0x86a66b,roughness:1});
+            streetPart(180,.15,140,0,-.48,-27,grassMat);
+            const hills=new THREE.MeshStandardMaterial({color:0x739a79,roughness:1});
+            for(let i=0;i<8;i++){
+                const hill=new THREE.Mesh(new THREE.SphereGeometry(14+(i%3)*3,24,12),hills);
+                hill.scale.set(1,.4,1);hill.position.set(-70+i*21,-.6,-59-(i%2)*9);facadeStreet.add(hill);
+            }
+            // Sculpted Misti cone and broad multi-summit Chachani massif.
+            function volcanoTerrain(cx,cz,radius,height,kind){
+                const segments=96,rings=44,positions=[],colors=[],indices=[];
+                const rockLow=new THREE.Color(0x9a9185),rockHigh=new THREE.Color(0x727b86),snowColor=new THREE.Color(0xe3e9ef);
+                for(let j=0;j<=rings;j++)for(let i=0;i<=segments;i++){
+                    const t=j/rings,angle=i/segments*Math.PI*2,r=radius*t;
+                    const x=r*Math.cos(angle),z=r*Math.sin(angle);
+                    let elev;
+                    if(kind==='misti'){
+                        elev=height*Math.pow(1-t,1.30);
+                        elev*=1+Math.sin(angle*11+t*6)*.035+Math.sin(angle*23-t*9)*.018;
+                        if(t<.065)elev=height*(.94+t*.6);
+                    }else{
+                        const peaks=[[-9,-1,1],[3,1,.94],[12,-4,.74],[-18,4,.66]];
+                        elev=0;
+                        for(const [px,pz,h]of peaks){const dist=Math.hypot((x-px)*.95,(z-pz)*1.1);elev=Math.max(elev,height*h*Math.pow(Math.max(0,1-dist/(radius*.76)),1.28));}
+                        elev*=1+.055*Math.sin(angle*13+t*16)+.028*Math.cos(x*1.7+z*.8);
+                        elev*=Math.min(1,(1-t)*6);
+                    }
+                    positions.push(cx+x,elev-.35,cz+z);
+                    const c=rockLow.clone().lerp(rockHigh,Math.min(1,elev/height));
+                    const snowline=(kind==='misti'?.88:.65)+.055*Math.sin(angle*9)+.025*Math.sin(angle*23);
+                    if(elev/height>snowline)c.lerp(snowColor,.94);
+                    else c.multiplyScalar(.91+.12*Math.sin(angle*17+t*19));
+                    colors.push(c.r,c.g,c.b);
+                }
+                for(let j=0;j<rings;j++)for(let i=0;i<segments;i++){const q=j*(segments+1)+i;indices.push(q,q+segments+1,q+1,q+1,q+segments+1,q+segments+2);}
+                const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.Float32BufferAttribute(positions,3));g.setAttribute('color',new THREE.Float32BufferAttribute(colors,3));g.setIndex(indices);g.computeVertexNormals();
+                const m=new THREE.Mesh(g,new THREE.MeshStandardMaterial({vertexColors:true,roughness:1,side:THREE.DoubleSide}));facadeStreet.add(m);
+            }
+            volcanoTerrain(-65,-77,34,27,'chachani');
+            volcanoTerrain(-8,-88,25,30,'misti');
+            const trunkMat=new THREE.MeshStandardMaterial({color:0x76624c,roughness:1});
+            for(let i=0;i<15;i++){
+                const x=-58+i*8;
+                streetPart(.3,2.5,.3,x,1.05,-23-(i%3)*4,trunkMat);
+                const tree=new THREE.Mesh(new THREE.SphereGeometry(1.8,12,9),green);tree.scale.y=1.35;tree.position.set(x,3.2,-23-(i%3)*4);facadeStreet.add(tree);
+            }
+            const cloudMat=new THREE.MeshBasicMaterial({color:0xf2f8ff});
+            for(let i=0;i<7;i++)for(let j=0;j<3;j++){
+                const cloud=new THREE.Mesh(new THREE.SphereGeometry(2.2+j*.35,14,9),cloudMat);
+                cloud.scale.set(1.5,.45,.7);cloud.position.set(-65+i*22+j*2.3,23+(i%3)*4,-67);facadeStreet.add(cloud);
+            }
+            // Requested exact text on a landscape sign behind the hotel.
+            const backdropCanvas=document.createElement('canvas');backdropCanvas.width=2048;backdropCanvas.height=256;
+            const backdropCtx=backdropCanvas.getContext('2d');backdropCtx.fillStyle='#244e47';backdropCtx.fillRect(0,0,2048,256);backdropCtx.fillStyle='#fff7df';backdropCtx.font='bold 155px sans-serif';backdropCtx.textAlign='center';backdropCtx.fillText('HOTAL EMMALU',1024,180);
+            const backdropSign=new THREE.Mesh(new THREE.PlaneGeometry(31,3.9),new THREE.MeshBasicMaterial({map:new THREE.CanvasTexture(backdropCanvas),side:THREE.DoubleSide}));backdropSign.position.set(0,14,-22);facadeStreet.add(backdropSign);
+            for(const x of [-14,14])streetPart(.20,13,.20,x,6.6,-22,bronze);
+            hotelExterior.add(facadeStreet);
+            const top=n*rise;
+            part(width+.3,.23,length+.3,0,top,0,ivory);
+            part(width,.55,.15,0,top+.3,front,plaster);
+            part(.15,.55,length,-width/2,top+.3,0,plaster);part(.15,.55,length,width/2,top+.3,0,plaster);
+            // Vertical HOSTAL lettering as in the reference (no handwritten markings).
+            const c=document.createElement('canvas');c.width=128;c.height=1024;
+            const ctx=c.getContext('2d');ctx.clearRect(0,0,128,1024);ctx.fillStyle='#9d1619';ctx.font='bold 120px sans-serif';ctx.textAlign='center';
+            'EMMALU'.split('').forEach((letter,i)=>ctx.fillText(letter,64,135+i*165));
+            const sign=new THREE.Mesh(new THREE.PlaneGeometry(.65,5.4),new THREE.MeshBasicMaterial({map:new THREE.CanvasTexture(c),transparent:true}));sign.position.set(-5.52,5.55,front+.3);hotelExterior.add(sign);
+            garageFurniture.visible=activeHotelFloor===1;garageReplacedParts.forEach(m=>m.visible=activeHotelFloor!==1);
+            receptionFurniture.visible=activeHotelFloor===1;
+            upperLoungeFurniture.forEach(m=>m.visible=activeHotelFloor!==1);
+            scene.add(hotelExterior);
+            // Move illustrative street to ground-floor level.
+            hotelSite.position.y=10.6;
+            hotelExterior.visible=facadeMode;buildingGroup.visible=!facadeMode;
+            if(openView)viewFacade();
+        }
+        function renderFacadeRoomMenu(){
+            const container=document.getElementById('facade-room-options');
+            container.innerHTML='';
+            for(let floor=1;floor<=3;floor++){
+                const section=document.createElement('details');section.open=true;
+                section.style.cssText='border-top:1px solid #343b43;padding:10px 0';
+                const title=document.createElement('summary');title.textContent='Piso '+floor+(floor===1?' · recepción y cochera':' · habitaciones');title.style.cssText='cursor:pointer;font-weight:700;margin-bottom:8px';section.appendChild(title);
+                const keys=floor===1?['dorm2_center']:['dorm1_left','dorm1_right','dorm2_center','dorm1_south'];
+                for(const key of keys){
+                    const index=['dorm1_left','dorm1_right','dorm2_center','dorm1_south'].indexOf(key)+1;
+                    const btn=document.createElement('button');btn.textContent='Habitación '+floor+String(index).padStart(2,'0')+' · €'+bookingRates[key]+'/hora';
+                    btn.style.cssText='display:block;width:100%;text-align:left;background:#202a34;color:#fff;border:1px solid #3d4854;border-radius:7px;padding:10px;margin:5px 0;cursor:pointer';
+                    btn.onclick=()=>{selectHotelFloor(floor);selectRoom(key);zoomToActiveRoom();openCheckInModal();document.getElementById('facade-room-menu').open=false;};section.appendChild(btn);
+                }
+                container.appendChild(section);
+            }
+        }
+        function viewFacade(){
+            renderFacadeRoomMenu();
+            document.getElementById('facade-room-menu').style.display='block';
+            document.getElementById('facade-room-menu').open=true;
+            showReference(null);facadeMode=true;buildingGroup.visible=false;hotelExterior.visible=true;hotelSite.visible=false;
+            document.getElementById('hotspots-layer').style.visibility='hidden';
+            camera.fov=43;camera.updateProjectionMatrix();controls.maxPolarAngle=Math.PI*.55;controls.minDistance=3;
+            const n=Number(document.getElementById('floor-count').value);
+            targetCamPos.set(25,n*3.1+9,52);targetLookAt.set(0,n*1.1+2,3);isCamLerp=true;
+        }
+        function viewFloorPlan(){
+            document.getElementById('facade-room-menu').style.display='none';
+            facadeMode=false;buildingGroup.visible=true;hotelExterior.visible=false;hotelSite.visible=false;
+            showReference(null);resetCameraView();
+        }
+
+        function viewStreetFromLounge() {
+            document.getElementById('facade-room-menu').style.display='none';
+            facadeMode=false; buildingGroup.visible=true; hotelExterior.visible=false; hotelSite.position.y=0; hotelSite.visible=true;
+            showReference(null);
+            currentActiveRoomKey='salon_social_sur';
+            selectRoom('salon_social_sur');
+            camera.fov=65; camera.updateProjectionMatrix();
+            controls.minDistance=.15;
+            controls.maxPolarAngle=Math.PI*.68;
+            targetCamPos.set(-3.2,1.65,7.2);
+            targetLookAt.set(-3.2,-6,23);
+            isCamLerp=true;
+        }
+
+        function resetCameraView() {
+            camera.fov=32; camera.updateProjectionMatrix();
+            controls.minDistance=5;
+            controls.maxPolarAngle=Math.PI/2.1;
+            targetCamPos.set(17, 32, 28);
+            targetLookAt.set(0, 0, 0);
+            isCamLerp = true;
+        }
+
+        function zoomCamera(delta) {
+            const offset=camera.position.clone().sub(controls.target);
+            const distance=offset.length();
+            const next=THREE.MathUtils.clamp(distance*Math.exp(delta*.045),controls.minDistance,controls.maxDistance);
+            targetLookAt.copy(controls.target);
+            targetCamPos.copy(controls.target).add(offset.normalize().multiplyScalar(next));
+            isCamLerp=true;
+        }
+
+        function renderRoomButtons() {
+            const container = document.getElementById('room-buttons-list');
+            container.innerHTML = '';
+
+            Object.values(blueprintRooms).forEach(room => {
+                const isActive = room.id === currentActiveRoomKey;
+                const btn = document.createElement('button');
+                btn.className = `px-2.5 py-1.5 rounded-xl text-[11px] font-bold transition-all border ${
+                    isActive 
+                        ? 'bg-gold-500 text-dark-900 border-gold-400 shadow-md' 
+                        : 'bg-dark-950 text-slate-300 border-dark-700 hover:bg-dark-800'
+                }`;
+                btn.textContent = room.id.startsWith('dorm') && room.status!=='parking' ? `Hab. ${floorRoomNumber(room.id)} · ${room.name}` : room.name;
+                btn.onclick = () => selectRoom(room.id);
+                container.appendChild(btn);
+            });
+        }
+
+        function onPointerClick(event) {
+            const container = document.getElementById('webgl-canvas-container');
+            const rect = container.getBoundingClientRect();
+
+            mouse.x = ((event.clientX - rect.left) / container.clientWidth) * 2 - 1;
+            mouse.y = -((event.clientY - rect.top) / container.clientHeight) * 2 + 1;
+
+            raycaster.setFromCamera(mouse, camera);
+            const intersects = raycaster.intersectObjects(buildingGroup.children, true);
+
+            if (intersects.length > 0) {
+                let obj = intersects[0].object;
+                while (obj && !obj.userData.roomKey && obj.parent) {
+                    obj = obj.parent;
+                }
+                if (obj && obj.userData.roomKey) {
+                    selectRoom(obj.userData.roomKey);
+                }
+            }
+        }
+
+        function setMode(mode) {
+            const guestPanel = document.getElementById('panel-guest-mode');
+            const receptionPanel = document.getElementById('panel-reception-mode');
+            const btnGuest = document.getElementById('btn-mode-guest');
+            const btnRec = document.getElementById('btn-mode-reception');
+
+            if (mode === 'guest') {
+                guestPanel.classList.remove('hidden');
+                receptionPanel.classList.add('hidden');
+                btnGuest.className = "px-3 py-1.5 sm:px-4 sm:py-2 rounded-lg text-xs sm:text-sm font-semibold transition-all flex items-center space-x-2 bg-gradient-to-r from-gold-500 to-gold-600 text-dark-900 shadow-md";
+                btnRec.className = "px-3 py-1.5 sm:px-4 sm:py-2 rounded-lg text-xs sm:text-sm font-medium text-slate-400 hover:text-slate-100 transition-all flex items-center space-x-2";
+            } else {
+                guestPanel.classList.add('hidden');
+                receptionPanel.classList.remove('hidden');
+                btnRec.className = "px-3 py-1.5 sm:px-4 sm:py-2 rounded-lg text-xs sm:text-sm font-semibold transition-all flex items-center space-x-2 bg-gradient-to-r from-gold-500 to-gold-600 text-dark-900 shadow-md";
+                btnGuest.className = "px-3 py-1.5 sm:px-4 sm:py-2 rounded-lg text-xs sm:text-sm font-medium text-slate-400 hover:text-slate-100 transition-all flex items-center space-x-2";
+                renderReceptionMatrix();
+            }
+        }
+
+        function renderReceptionMatrix() {
+            const grid = document.getElementById('reception-matrix-grid');
+            grid.innerHTML = '';
+
+            Object.values(blueprintRooms).forEach(room => {
+                const card = document.createElement('div');
+                card.className = "bg-dark-950 p-3 rounded-xl border border-dark-800 flex justify-between items-center text-xs";
+                card.innerHTML = `
+                    <div>
+                        <span class="font-bold text-white block">${room.name}</span>
+                        <span class="text-[10px] text-gold-400">${room.axis} • ${room.dim}</span>
+                    </div>
+                    <span class="px-2 py-1 rounded text-[10px] font-bold ${
+                        room.status === 'available' ? 'bg-emerald-500/20 text-emerald-400' : 'bg-rose-500/20 text-rose-400'
+                    }">${room.status === 'available' ? 'Disponible' : 'Ocupada'}</span>
+                `;
+                grid.appendChild(card);
+            });
+        }
+
+        const bookingRates={dorm1_left:10,dorm1_right:12,dorm2_center:8,dorm1_south:11};
+        let bookingSelection=null;
+        function updateBookingTotal(){
+            const date=document.getElementById('booking-in').value,time=document.getElementById('booking-time').value;
+            const hours=Number(document.getElementById('booking-hours').value),rate=Number(document.getElementById('booking-price').value);
+            const start=new Date(date+'T'+time);
+            const valid=Number.isFinite(start.getTime())&&Number.isInteger(hours)&&hours>=1&&hours<=168&&rate>0;
+            const end=new Date(start.getTime()+hours*3600000);
+            const format=d=>d.toLocaleString('es-PE',{dateStyle:'short',timeStyle:'short',hour12:false});
+            document.getElementById('booking-total').textContent=valid?`${hours} hora${hours===1?'':'s'} · Total: €${(hours*rate).toFixed(2)} · Salida: ${format(end)}`:'Indica la fecha, hora y duración (de 1 a 168 horas).';
+            document.getElementById('booking-submit').disabled=!valid;
+            return {valid,hours,total:hours*rate,startLabel:valid?format(start):'',endLabel:valid?format(end):''};
+        }
+        function openCheckInModal(){
+            const room=blueprintRooms[currentActiveRoomKey];
+            if(!room.id.startsWith('dorm')||room.status==='parking')return;
+            bookingSelection={key:room.id,floor:activeHotelFloor,number:floorRoomNumber(room.id)};
+            document.getElementById('booking-room').textContent=`Habitación ${bookingSelection.number} · ${room.name} · Piso ${activeHotelFloor}${room.id.startsWith('dorm')&&room.status!=='parking'?' · €'+bookingRates[room.id]+'/hora':''}`;
+            document.getElementById('booking-price').value=bookingRates[room.id];
+            const now=new Date();const today=new Date(now.getTime()-now.getTimezoneOffset()*60000).toISOString().slice(0,10);
+
+            document.getElementById('booking-in').min=today;document.getElementById('booking-in').value=today;document.getElementById('booking-time').value=String(now.getHours()).padStart(2,'0')+':'+String(now.getMinutes()).padStart(2,'0');document.getElementById('booking-hours').value=3;
+            document.getElementById('booking-result').textContent='';updateBookingTotal();document.getElementById('booking-dialog').showModal();
+        }
+        function closeCheckInModal(){document.getElementById('booking-dialog').close();}
+        document.getElementById('booking-form').addEventListener('submit',event=>{
+            event.preventDefault();const totals=updateBookingTotal();if(!totals.valid)return;
+            const method=document.getElementById('booking-payment').selectedOptions[0].textContent;
+            const ref='DEMO-'+bookingSelection.number+'-'+Date.now().toString(36).toUpperCase();
+            document.getElementById('booking-result').textContent=`Solicitud de prueba ${ref}: habitación ${bookingSelection.number}, ${totals.hours} horas, entrada ${totals.startLabel}, salida ${totals.endLabel}, €${totals.total.toFixed(2)}. Creada el ${new Date().toLocaleString('es-PE')}. ${method}. No se ha realizado ningún cobro ni reserva real.`;
+        });
+        function onWindowResize() {
+            const container = document.getElementById('webgl-canvas-container');
+            if (!container || !renderer || !camera) return;
+
+            camera.aspect = container.clientWidth / container.clientHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(container.clientWidth, container.clientHeight);
+        }
+
+        let lastFrameTime=performance.now();
+        function animateLoop() {
+            const frameNow=performance.now();
+            const frameDelta=Math.min((frameNow-lastFrameTime)/1000,.05);lastFrameTime=frameNow;
+            const transitionAlpha=1-Math.exp(-7*frameDelta);
+            requestAnimationFrame(animateLoop);
+
+            if (isCamLerp && camera && controls) {
+                camera.position.lerp(targetCamPos, transitionAlpha);
+                controls.target.lerp(targetLookAt, transitionAlpha);
+
+                if (camera.position.distanceTo(targetCamPos) < 0.05) {
+                    isCamLerp = false;
+                }
+            }
+
+            if (controls) controls.update();
+            if (renderer && scene && camera) {
+                renderer.render(scene, camera);
+                projectHotspotsToScreen();
+            }
+        }
+
+        window.addEventListener('DOMContentLoaded', () => {
+            initThreeEngine();
+            updateHotspotsLayer();
+            selectRoom('dorm1_left'); resetCameraView(); showReference(null); selectHotelFloor(1);
+        });
+    </script>
+</body>
+</html>
