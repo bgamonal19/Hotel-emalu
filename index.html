@@ -549,25 +549,62 @@ header {display:none!important}
                 const skirting=new THREE.Mesh(new THREE.BoxGeometry(len,.085,.153),wood);skirting.position.y=.043;g.add(skirting);
                 buildingGroup.add(g);
             }
-            function door(x,z,vertical=false){const m=box(x,z,x+25,z+3,.78,wood); if(vertical){m.rotation.y=Math.PI/2;} }
-            function windowPane(x1,z1,x2,z2){wall(x1,z1,x2,z2,.34);const dx=x2-x1,dz=z2-z1;const m=new THREE.Mesh(new THREE.BoxGeometry(Math.hypot(dx,dz)/31.4,.6,.045),glass);m.position.set(X((x1+x2)/2),.68,Z((z1+z2)/2));m.rotation.y=-Math.atan2(dz,dx);buildingGroup.add(m);}
+            const metalFrame=new THREE.MeshStandardMaterial({color:0x35413e,metalness:.7,roughness:.3});
+            const brushedBrass=new THREE.MeshStandardMaterial({color:0xbca274,metalness:.8,roughness:.28});
+            const clearGlass=new THREE.MeshPhysicalMaterial({color:0xa8d3dd,metalness:.05,roughness:.12,transparent:true,opacity:.25,depthWrite:false,side:THREE.DoubleSide});
+            // Cutaway-height doors keep the rooms visible from above.
+            function door(x1,z1,x2,z2,angle=58){
+                const width=Math.hypot(x2-x1,z2-z1)/31.4;
+                const g=new THREE.Group();g.position.set(X((x1+x2)/2),0,Z((z1+z2)/2));g.rotation.y=-Math.atan2(z2-z1,x2-x1);
+                for(const side of [-1,1])softBox(g,.055,1.13,.17,side*width/2,.565,0,wood,.012);
+                softBox(g,width+.10,.06,.17,0,1.12,0,wood,.012);
+                softBox(g,width,.018,.19,0,.014,0,brushedBrass,.004);
+                const hinge=new THREE.Group();hinge.position.x=-width/2+.04;hinge.rotation.y=angle*Math.PI/180;g.add(hinge);
+                const leafWidth=Math.max(.20,width-.07);
+                softBox(hinge,leafWidth,1.04,.045,leafWidth/2,.54,0,wood,.015);
+                // Raised inset panel, metal escutcheon, lever and visible hinges.
+                softBox(hinge,leafWidth-.12,.68,.018,leafWidth/2,.62,-.03,surfaceMaterial(0x72503a,'wood'),.014);
+                for(const side of [-1,1]){
+                    softBox(hinge,.045,.12,.016,leafWidth-.08,.56,side*.035,brushedBrass,.008);
+                    softBox(hinge,.12,.018,.025,leafWidth-.12,.59,side*.057,brushedBrass,.007);
+                }
+                for(const y of [.19,.88])cylinderPart(hinge,.014,.014,.09,.005,y,0,brushedBrass);
+                buildingGroup.add(g);return g;
+            }
+            function windowPane(x1,z1,x2,z2){
+                wall(x1,z1,x2,z2,.30);
+                const width=Math.hypot(x2-x1,z2-z1)/31.4;
+                const g=new THREE.Group();g.position.set(X((x1+x2)/2),0,Z((z1+z2)/2));g.rotation.y=-Math.atan2(z2-z1,x2-x1);
+                softBox(g,width+.10,.055,.25,0,.33,0,white,.01);
+                for(const side of [-1,1])softBox(g,.045,.79,.095,side*(width/2-.02),.755,0,metalFrame,.008);
+                for(const y of [.38,1.13])softBox(g,width,.045,.095,0,y,0,metalFrame,.008);
+                const panes=Math.max(2,Math.ceil(width/1.1));
+                for(let i=0;i<panes;i++){
+                    const paneWidth=(width-.08)/panes;const x=-width/2+.04+paneWidth*(i+.5);
+                    softBox(g,paneWidth-.025,.69,.014,x,.755,0,clearGlass,.004);
+                    if(i>0)softBox(g,.028,.73,.10,x-paneWidth/2,.755,.01,metalFrame,.004);
+                }
+                softBox(g,.018,.13,.035,.065,.72,-.065,brushedBrass,.004);
+                buildingGroup.add(g);
+            }
             // Separate slabs leave the two light wells open.
             box(169,151,543,286,.16,tile,-.16);box(169,286,228,371,.16,tile,-.16);box(328,286,380,371,.16,tile,-.16);box(480,286,543,371,.16,tile,-.16);box(169,371,543,896,.16,tile,-.16);
             box(228,286,328,371,.04,shaft,-1.3);box(380,286,480,371,.04,shaft,-1.3);
             // Original envelope, with openings at the two rear bedrooms and facade.
-            wall(169,151,169,896);wall(543,151,543,896);
+            wall(169,151,169,175);windowPane(169,175,169,215);wall(169,215,169,896);
+            wall(543,151,543,794);windowPane(543,794,543,850);wall(543,850,543,896);
             wall(169,151,224,151);windowPane(224,151,314,151);wall(314,151,415,151);windowPane(415,151,534,151);wall(534,151,543,151);
             wall(169,896,183,896);windowPane(183,896,345,896);wall(345,896,418,896);windowPane(418,896,534,896);wall(534,896,543,896);
             // Back left flat: bathroom, bedroom, entry hall, light well, living and kitchenette.
-            wall(219,151,219,246);wall(169,246,200,246);wall(215,246,227,246);wall(227,246,227,282);
+            wall(219,151,219,246);wall(169,246,196,246);wall(220,246,227,246);wall(227,246,227,282);
             wall(328,151,328,246);wall(328,246,348,246);wall(348,246,348,448);
-            wall(227,282,328,282);wall(228,282,228,371);wall(328,282,328,371);wall(228,371,328,371);
+            wall(227,282,298,282);wall(323,282,328,282);wall(228,282,228,371);wall(328,282,328,371);windowPane(228,371,328,371);
             wall(169,371,202,371);wall(222,371,228,371);wall(169,485,267,485);wall(267,445,267,485);
             // Back right flat and bathroom.
-            wall(361,151,361,246);wall(409,151,409,246);wall(361,246,383,246);wall(402,246,409,246);
-            wall(409,246,409,283);wall(409,283,543,283);
-            wall(380,286,380,371);wall(480,286,480,371);wall(380,371,480,371);
-            wall(480,286,480,292);wall(480,354,480,371);
+            wall(361,151,361,246);wall(409,151,409,246);wall(361,246,379,246);wall(403,246,409,246);
+            wall(409,246,409,283);wall(409,283,416,283);wall(442,283,543,283);
+            wall(380,286,380,371);wall(480,286,480,371);windowPane(380,371,480,371);
+            wall(480,286,480,292);windowPane(480,292,480,354);wall(480,354,480,371);
             wall(348,485,456,485);wall(482,485,543,485);
             // Shared stairs and landing at left center.
             wall(169,491,266,491);wall(266,491,266,611);wall(169,615,266,615);wall(169,657,268,657);
@@ -585,18 +622,49 @@ header {display:none!important}
             wall(354,740,414,740);wall(354,740,354,894);wall(414,740,414,765);wall(414,790,414,896);
             // Balcony at the front left.
             wall(169,856,202,856,.35);windowPane(202,856,338,856);wall(338,856,354,856,.35);wall(169,896,306,896,.6);wall(306,896,306,908,.6);wall(306,908,354,908,.6);
+            // Doors use the existing wall openings, including bathroom and bedroom entries.
+            door(196,246,220,246,-65);door(298,282,323,282,65);
+            door(379,246,403,246,-65);door(416,283,442,283,65);
+            door(202,371,222,371,70);door(456,485,482,485,60);
+            door(414,614,438,614,-62);door(465,614,487,614,62);
+            door(316,663,316,684,62);door(451,642,451,660,-65);
+            door(451,698,451,722,60);door(414,765,414,790,-58);
             // Fixtures positioned according to the photograph.
             function bath(x,z,w=42,d=90){
-                box(x,z,x+w,z+d,.025,wet,.015);
-                box(x+3,z+3,x+w-3,z+28,.06,white,.03);
-                const pane=box(x+3,z+29,x+w-3,z+30,.75,glass);
-                box(x+5,z+42,x+19,z+55,.48,white);
-                const toilet=new THREE.Mesh(new THREE.CylinderGeometry(.20,.17,.35,20),white);toilet.position.set(X(x+15),.23,Z(z+74));buildingGroup.add(toilet);
+                const horizontal=w>d;
+                const g=createDetailedBathroom(Math.min(w,d)/31.4,Math.max(w,d)/31.4);
+                g.position.set(X(x+w/2),.025,Z(z+d/2));
+                if(horizontal)g.rotation.y=Math.PI/2;
+                buildingGroup.add(g);
             }
             bath(173,155,42,88);bath(365,155,40,88);bath(455,619,83,38);bath(359,780,49,108);
             function bed(x,z,mat){const g=createRenderBed(wood,mat);g.scale.set(.77,1,.95);g.position.set(X(x),.025,Z(z));buildingGroup.add(g);}
             bed(274,202,white);bed(475,209,blue);bed(381,552,white);bed(479,831,blue);
-            function kitchen(x,z,w,d){box(x,z,x+w,z+d,.82,wood);box(x-1,z-1,x+w+1,z+d+1,.045,white,.82);const stove=box(x+2,z+3,x+w-2,z+19,.025,capMat,.87);}
+            function kitchen(x,z,w,d){
+                const long=Math.max(w,d)/31.4,narrow=Math.min(w,d)/31.4;
+                const g=new THREE.Group();g.position.set(X(x+w/2),0,Z(z+d/2));if(w>d)g.rotation.y=Math.PI/2;
+                softBox(g,narrow,.70,long,0,.42,0,wood,.015);
+                softBox(g,narrow+.055,.055,long+.04,0,.80,0,white,.01);
+                const panels=Math.max(2,Math.ceil(long/.5));
+                for(let i=0;i<panels;i++){
+                    const z=-long/2+(i+.5)*long/panels;
+                    softBox(g,.016,.63,long/panels-.018,-narrow/2-.014,.43,z,wood,.004);
+                    softBox(g,.025,.025,.15,-narrow/2-.035,.66,z,brushedBrass,.005);
+                }
+                // Stainless inset sink, recessed bowl and gooseneck-style mixer.
+                const sinkZ=long*.20;
+                softBox(g,narrow*.74,.018,.43,0,.839,sinkZ,metalFrame,.035);
+                softBox(g,narrow*.57,.012,.31,0,.851,sinkZ,wet,.035);
+                cylinderPart(g,.018,.018,.20,narrow*.30,.94,sinkZ,brushedBrass);
+                softBox(g,narrow*.30,.025,.025,narrow*.15,1.03,sinkZ,brushedBrass,.005);
+                if(long>1.4){
+                    softBox(g,narrow*.82,.02,.52,0,.84,-long*.25,capMat,.012);
+                    for(const z of [-long*.25-.13,-long*.25+.13]){
+                        const ring=new THREE.Mesh(new THREE.TorusGeometry(narrow*.21,.012,6,24),brushedBrass);ring.rotation.x=-Math.PI/2;ring.position.set(0,.86,z);g.add(ring);
+                    }
+                }
+                buildingGroup.add(g);
+            }
             kitchen(305,376,19,64);kitchen(518,381,21,88);kitchen(339,620,68,20);kitchen(389,640,18,53);
             box(455,699,512,719,.78,wood);box(514,678,539,705,.82,white);box(519,681,536,699,.04,capMat,.84);
             box(479,535,534,555,.72,wood);box(499,563,516,580,.4,blue);
@@ -812,9 +880,66 @@ header {display:none!important}
             softBox(g,2.65,.018,2.7,0,.012,.25,surfaceMaterial(0xc3b7a1,'fabric'),.005);
             return g;
         }
-        function createRenderBath(matGlass, matDarkTile) {
-            const g=new THREE.Group();softBox(g,1.25,.05,1.75,0,.025,0,matDarkTile,.01);
-            softBox(g,.035,1.5,1.75,-.63,.8,0,matGlass,.01);return g;
+        function createDetailedBathroom(width,depth){
+            const g=new THREE.Group();
+            const porcelain=new THREE.MeshPhysicalMaterial({color:0xf4f3ec,roughness:.18,clearcoat:.65,clearcoatRoughness:.15});
+            const chrome=new THREE.MeshStandardMaterial({color:0xc6cdd0,metalness:.9,roughness:.19});
+            const dark=new THREE.MeshStandardMaterial({color:0x333e3c,metalness:.5,roughness:.32});
+            const stone=surfaceMaterial(0xc4c7c2,'stone'),oak=surfaceMaterial(0x9b7755,'wood');
+            const towel=surfaceMaterial(0xf2eadb,'fabric');
+            const glass=new THREE.MeshPhysicalMaterial({color:0xb6d6d9,roughness:.08,transparent:true,opacity:.22,depthWrite:false,side:THREE.DoubleSide});
+            const mirror=new THREE.MeshStandardMaterial({color:0xb4d2d8,metalness:.85,roughness:.08});
+            // Individual porcelain floor tiles and grout give scale to the small rooms.
+            const grout=new THREE.MeshStandardMaterial({color:0x777f7b,roughness:1});
+            softBox(g,width,.035,depth,0,.018,0,grout,.005);
+            const cols=Math.ceil(width/.39),rows=Math.ceil(depth/.39),tw=width/cols,td=depth/rows;
+            for(let c=0;c<cols;c++)for(let r=0;r<rows;r++)softBox(g,tw-.009,.018,td-.009,-width/2+(c+.5)*tw,.044,-depth/2+(r+.5)*td,stone,.003);
+            const showerD=Math.min(.82,depth*.31),back=-depth/2;
+            softBox(g,width-.04,.055,showerD-.02,0,.084,back+showerD/2,porcelain,.018);
+            // Back wall tiles, glass screen, narrow frame and linear drain.
+            softBox(g,width-.04,1.10,.025,0,.61,back+.012,stone,.005);
+            const screenWidth=width*.67;
+            softBox(g,screenWidth,1.04,.018,-width/2+screenWidth/2,.65,back+showerD,glass,.004);
+            for(const x of [-width/2+.015,-width/2+screenWidth])softBox(g,.018,1.08,.028,x,.65,back+showerD,dark,.004);
+            softBox(g,width-.16,.012,.045,0,.12,back+.12,chrome,.003);
+            for(let i=0;i<7;i++)softBox(g,.045,.004,.008,(i-3)*(width-.24)/7,.128,back+.12,dark,.001);
+            cylinderPart(g,.014,.014,.70,.0,.66,back+.07,chrome);
+            const showerArm=softBox(g,.025,.025,.30,0,1.02,back+.20,chrome,.005);
+            cylinderPart(g,.12,.12,.028,0,1.0,back+.35,chrome);
+            softBox(g,.20,.07,.05,0,.54,back+.065,chrome,.012);
+            for(const x of [-.065,.065])cylinderPart(g,.023,.023,.025,x,.58,back+.07,chrome);
+            // Floating oak vanity with inset basin, drain, mixer and soap dispenser.
+            const vx=-width/2+.25,vz=back+showerD+.50;
+            softBox(g,.45,.34,.52,vx,.40,vz,oak,.025);
+            softBox(g,.47,.055,.55,vx,.60,vz,porcelain,.015);
+            softBox(g,.24,.14,.34,vx,.675,vz,porcelain,.06);
+            softBox(g,.16,.015,.24,vx,.751,vz,stone,.035);
+            cylinderPart(g,.023,.023,.008,vx,.765,vz,chrome);
+            cylinderPart(g,.014,.014,.16,vx-.13,.72,vz-.16,chrome);
+            softBox(g,.14,.024,.025,vx-.075,.80,vz-.16,chrome,.006);
+            softBox(g,.12,.015,.025,vx+.13,.67,vz-.20,chrome,.004);
+            cylinderPart(g,.032,.032,.09,vx+.16,.70,vz+.17,porcelain);
+            softBox(g,.05,.015,.018,vx+.16,.756,vz+.17,chrome,.003);
+            softBox(g,.012,.016,.20,vx+.232,.46,vz,dark,.004);
+            // Mirror on the side wall, with warm perimeter lighting.
+            const warm=new THREE.MeshStandardMaterial({color:0xffecc5,emissive:0xe8bd75,emissiveIntensity:.4});
+            softBox(g,.028,.48,.48,-width/2+.025,.91,vz,warm,.02);
+            softBox(g,.032,.43,.43,-width/2+.045,.91,vz,mirror,.02);
+            // Recognisable toilet: pedestal, curved bowl, seat opening and cistern.
+            const tx=Math.min(.16,width/2-.29),tz=depth/2-.38;
+            softBox(g,.30,.28,.39,tx,.20,tz,porcelain,.09);
+            const bowl=new THREE.Mesh(new THREE.SphereGeometry(1,24,16),porcelain);bowl.scale.set(.24,.16,.32);bowl.position.set(tx,.40,tz);bowl.castShadow=true;g.add(bowl);
+            const seat=new THREE.Mesh(new THREE.TorusGeometry(.18,.035,8,32),porcelain);seat.rotation.x=-Math.PI/2;seat.scale.set(1,1.38,1);seat.position.set(tx,.525,tz+.015);g.add(seat);
+            const opening=new THREE.Mesh(new THREE.CircleGeometry(.145,24),new THREE.MeshStandardMaterial({color:0x697d7a,roughness:.2}));opening.rotation.x=-Math.PI/2;opening.scale.y=1.40;opening.position.set(tx,.524,tz+.015);g.add(opening);
+            softBox(g,.39,.43,.16,tx,.49,tz-.27,porcelain,.04);
+            softBox(g,.40,.04,.18,tx,.72,tz-.27,porcelain,.015);
+            softBox(g,.085,.012,.05,tx,.748,tz-.27,chrome,.008);
+            // Folded towels on a rail, paper holder and small waste bin.
+            softBox(g,.028,.025,.46,-width/2+.10,.88,depth/2-.57,chrome,.006);
+            softBox(g,.065,.32,.27,-width/2+.12,.74,depth/2-.57,towel,.02);
+            const roll=cylinderPart(g,.06,.06,.13,width/2-.11,.55,tz,porcelain);roll.rotation.z=Math.PI/2;
+            cylinderPart(g,.075,.065,.18,width/2-.13,.14,back+showerD+.32,dark);
+            return g;
         }
         function createRenderLSofa(matFabric) {
             const g=new THREE.Group();const fabric=surfaceMaterial(0xbfb4a1,'fabric');
