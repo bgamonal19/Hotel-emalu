@@ -1,0 +1,526 @@
+<title>Hotel Emalu 3D</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Marcellus&family=Figtree:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: app shell — header, 3D viewer on the left, room card + booking on the right; stacks on phones */
+:root {
+  --bg: #eef0ec;
+  --surface: #ffffff;
+  --surface-2: #f5f6f2;
+  --fg: #1e2420;
+  --muted: #5d665f;
+  --line: #d6dad2;
+  --accent: #9a6b2f;      /* bronce */
+  --accent-fg: #ffffff;
+  --ok: #2f7d4f;
+  --busy: #b23b2e;
+  --scene-bg: #dfe3dc;
+  --font-display: "Marcellus", "Times New Roman", serif;
+  --font-body: "Figtree", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-data: "JetBrains Mono", ui-monospace, Menlo, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #141815; --surface: #1c211d; --surface-2: #232924; --fg: #e9ece6; --muted: #9ba49c;
+    --line: #333b35; --accent: #d39a55; --accent-fg: #1a140c; --ok: #5cc287; --busy: #ef7b6c;
+    --scene-bg: #1a1f1b; color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #141815; --surface: #1c211d; --surface-2: #232924; --fg: #e9ece6; --muted: #9ba49c;
+  --line: #333b35; --accent: #d39a55; --accent-fg: #1a140c; --ok: #5cc287; --busy: #ef7b6c;
+  --scene-bg: #1a1f1b; color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body { background: var(--bg); color: var(--fg); font-family: var(--font-body); font-size: 15px; line-height: 1.5; }
+h1, h2, h3 { font-family: var(--font-display); font-weight: 400; text-wrap: balance; margin: 0; }
+button, input, select { font: inherit; color: inherit; }
+button:focus-visible, input:focus-visible, select:focus-visible, canvas:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+.wrap { padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); max-width: 1400px; margin: 0 auto; }
+
+header.top { border-bottom: 1px solid var(--line); background: var(--surface); }
+header.top .wrap { display: flex; align-items: center; gap: 16px; padding-block: 12px; flex-wrap: wrap; }
+.menu-btn { border: 1px solid var(--line); background: transparent; border-radius: 6px; width: 40px; height: 40px; font-size: 20px; cursor: pointer; }
+.brand { display: flex; flex-direction: column; line-height: 1.1; }
+.brand b { font-family: var(--font-display); font-weight: 400; font-size: 22px; letter-spacing: .14em; }
+.brand span { font-size: 12px; color: var(--muted); letter-spacing: .06em; text-transform: uppercase; }
+.modes { margin-left: auto; display: flex; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
+.modes button { border: 0; background: transparent; padding: 8px 14px; cursor: pointer; font-size: 14px; }
+.modes button[aria-pressed="true"] { background: var(--fg); color: var(--bg); }
+
+.floors { display: flex; gap: 8px; flex-wrap: wrap; padding-block: 12px; }
+.floors[hidden] { display: none !important; }
+.floor-btn { border: 1px solid var(--line); background: var(--surface); border-radius: 999px; padding: 6px 14px; cursor: pointer; display: flex; gap: 8px; align-items: baseline; }
+.floor-btn small { color: var(--muted); font-size: 12px; }
+.floor-btn[aria-pressed="true"] { border-color: var(--accent); background: var(--accent); color: var(--accent-fg); }
+.floor-btn[aria-pressed="true"] small { color: inherit; opacity: .85; }
+
+.notice { font-size: 13px; color: var(--muted); padding-block: 0 8px; }
+.notice strong { color: var(--fg); font-weight: 600; }
+
+main.grid { display: grid; grid-template-columns: minmax(0, 1fr) 380px; gap: 20px; padding-block: 4px 32px; }
+@media (max-width: 920px) { main.grid { grid-template-columns: minmax(0, 1fr); } }
+
+.viewer { position: relative; background: var(--scene-bg); border: 1px solid var(--line); border-radius: 10px; overflow: hidden; min-height: 460px; height: 64vh; max-height: 720px; }
+.viewer canvas { display: block; width: 100%; height: 100%; touch-action: none; cursor: grab; }
+.viewer canvas.dragging { cursor: grabbing; }
+.v-head { position: absolute; left: 14px; top: 12px; right: 14px; display: flex; justify-content: space-between; gap: 12px; pointer-events: none; flex-wrap: wrap; }
+.v-head > * { pointer-events: auto; }
+.v-title { background: color-mix(in srgb, var(--surface) 88%, transparent); border: 1px solid var(--line); border-radius: 8px; padding: 8px 12px; max-width: 320px; }
+.v-title h2 { font-size: 18px; }
+.v-title p { margin: 2px 0 0; font-size: 12px; color: var(--muted); }
+.tools { display: flex; gap: 6px; align-self: flex-start; }
+.tools button { border: 1px solid var(--line); background: var(--surface); border-radius: 6px; padding: 6px 10px; cursor: pointer; font-size: 13px; }
+.tools button[aria-pressed="true"] { border-color: var(--fg); background: var(--fg); color: var(--bg); }
+.v-foot { position: absolute; left: 14px; bottom: 12px; right: 14px; display: flex; justify-content: space-between; align-items: flex-end; gap: 12px; pointer-events: none; flex-wrap: wrap; }
+.legend { display: flex; gap: 12px; font-size: 12px; background: color-mix(in srgb, var(--surface) 88%, transparent); border: 1px solid var(--line); border-radius: 6px; padding: 6px 10px; }
+.legend i { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 5px; vertical-align: -1px; }
+.hint { font-size: 12px; color: var(--muted); background: color-mix(in srgb, var(--surface) 88%, transparent); border-radius: 6px; padding: 4px 8px; }
+.tip { position: absolute; pointer-events: none; background: var(--fg); color: var(--bg); font-size: 12px; padding: 4px 8px; border-radius: 4px; transform: translate(-50%, -130%); white-space: nowrap; }
+
+/* Panel de recepción */
+.reception { position: absolute; right: 14px; top: 64px; width: min(300px, calc(100% - 28px)); background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 14px; box-shadow: 0 8px 30px rgb(0 0 0 / .12); }
+.reception header { display: flex; justify-content: space-between; align-items: start; gap: 8px; }
+.reception h3 { font-size: 17px; }
+.reception p.sub { margin: 2px 0 10px; font-size: 12px; color: var(--muted); }
+.close { border: 0; background: transparent; font-size: 18px; cursor: pointer; line-height: 1; padding: 2px 6px; }
+.stats { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.stat { background: var(--surface-2); border-radius: 6px; padding: 8px 10px; }
+.stat b { display: block; font-family: var(--font-data); font-size: 20px; font-weight: 500; font-variant-numeric: tabular-nums; }
+.stat span { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: .06em; }
+.stat.free b { color: var(--ok); } .stat.busy b { color: var(--busy); }
+.roomlist { list-style: none; margin: 10px 0 0; padding: 0; display: grid; gap: 4px; font-size: 13px; }
+.roomlist li { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+.roomlist button { border: 1px solid var(--line); background: transparent; border-radius: 999px; font-size: 11px; padding: 2px 8px; cursor: pointer; }
+
+/* Lateral */
+aside.side { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
+.card { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 16px; }
+.eyebrow { font-size: 11px; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); }
+.room-head { display: flex; justify-content: space-between; align-items: start; gap: 12px; }
+.room-head h3 { font-size: 22px; margin-top: 2px; }
+.pill { font-size: 12px; font-weight: 600; padding: 3px 10px; border-radius: 999px; white-space: nowrap; }
+.pill.free { background: color-mix(in srgb, var(--ok) 16%, transparent); color: var(--ok); }
+.pill.busy { background: color-mix(in srgb, var(--busy) 16%, transparent); color: var(--busy); }
+.pill.hall { background: var(--surface-2); color: var(--muted); }
+.room-desc { margin: 10px 0 12px; color: var(--muted); }
+dl.specs { display: grid; grid-template-columns: auto 1fr; gap: 6px 14px; margin: 0; font-size: 14px; }
+dl.specs dt { color: var(--muted); }
+dl.specs dd { margin: 0; }
+.mono { font-family: var(--font-data); font-size: 13px; font-variant-numeric: tabular-nums; }
+.verify { font-size: 11px; color: var(--accent); margin-left: 6px; }
+.actions { display: flex; gap: 8px; margin-top: 14px; }
+.btn { border: 1px solid var(--fg); background: transparent; border-radius: 6px; padding: 9px 14px; cursor: pointer; font-weight: 500; flex: 1; }
+.btn.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-fg); }
+.btn:disabled { opacity: .45; cursor: not-allowed; }
+.empty { color: var(--muted); font-size: 14px; }
+
+form.book { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+form.book .full { grid-column: 1 / -1; }
+form.book label { display: flex; flex-direction: column; gap: 4px; font-size: 13px; color: var(--muted); min-width: 0; }
+form.book input, form.book select { border: 1px solid var(--line); background: var(--surface-2); border-radius: 6px; padding: 8px 10px; color: var(--fg); width: 100%; }
+.demo-note { font-size: 12px; color: var(--muted); background: var(--surface-2); border-radius: 6px; padding: 8px 10px; margin: 8px 0 12px; }
+.warn { font-size: 12px; color: var(--busy); }
+.total { display: flex; justify-content: space-between; align-items: baseline; border-top: 1px solid var(--line); padding-top: 10px; }
+.total b { font-family: var(--font-data); font-size: 20px; font-weight: 500; }
+.confirm { font-size: 13px; background: color-mix(in srgb, var(--ok) 14%, transparent); color: var(--fg); border-radius: 6px; padding: 8px 10px; }
+
+@media (max-width: 560px) {
+  .modes { margin-left: 0; width: 100%; } .modes button { flex: 1; }
+  .viewer { height: 56vh; min-height: 380px; }
+  .reception { top: auto; bottom: 52px; }
+}
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+</style>
+
+<header class="top">
+  <div class="wrap">
+    <button class="menu-btn" id="menuBtn" aria-label="Mostrar pisos" aria-expanded="true">☰</button>
+    <div class="brand"><b>HOTEL EMALU</b><span>Vista 3D · Referencia del cuarto piso</span></div>
+    <div class="modes" role="group" aria-label="Modo de vista">
+      <button id="modeSelf" aria-pressed="true">Vista Autoservicio / 3D</button>
+      <button id="modeLive" aria-pressed="false">Modo Recepción Live</button>
+    </div>
+  </div>
+</header>
+
+<div class="wrap">
+  <nav class="floors" id="floors" aria-label="Seleccionar piso"></nav>
+  <p class="notice"><strong>Versión de referencia.</strong> Reconstruida a partir del contenido del prototipo original. Colores, forma del edificio y medidas marcadas "por verificar" son provisionales hasta tener el código.</p>
+</div>
+
+<main class="wrap grid">
+  <section class="viewer" id="viewer">
+    <canvas id="scene" tabindex="0" aria-label="Edificio en 3D. Arrastra para girar, toca una habitación para seleccionarla."></canvas>
+    <div class="v-head">
+      <div class="v-title">
+        <h2 id="vTitle">Seleccionar piso y habitación</h2>
+        <p>Fachada según referencia · 3 pisos · Distribución del plano</p>
+      </div>
+      <div class="tools" role="group" aria-label="Control de la vista">
+        <button id="toolRotate" aria-pressed="true">Rotar</button>
+        <button id="toolMove" aria-pressed="false">Mover</button>
+        <button id="toolReset">Centrar</button>
+      </div>
+    </div>
+    <div class="v-foot">
+      <div class="legend"><span><i style="background:var(--ok)"></i>Disponible</span><span><i style="background:var(--busy)"></i>Ocupada</span><span><i style="background:var(--accent)"></i>Seleccionada</span></div>
+      <span class="hint" id="hint">Arrastra para girar · toca una habitación</span>
+    </div>
+    <div class="tip" id="tip" hidden></div>
+
+    <section class="reception" id="reception" hidden aria-label="Panel de recepción">
+      <header>
+        <div><h3>Gestión de recepción · Piso seleccionado</h3><p class="sub">Vista arquitectónica en 3D en tiempo real</p></div>
+        <button class="close" id="closeReception" aria-label="Cerrar panel">✕</button>
+      </header>
+      <div class="stats">
+        <div class="stat"><b>221.4 m²</b><span>Área útil construida</span></div>
+        <div class="stat"><b id="stHalls">2</b><span>Salones sociales</span></div>
+        <div class="stat free"><b id="stFree">3</b><span>Habitaciones libres</span></div>
+        <div class="stat busy"><b id="stBusy">2</b><span>Habitaciones ocupadas</span></div>
+      </div>
+      <ul class="roomlist" id="roomList"></ul>
+    </section>
+  </section>
+
+  <aside class="side">
+    <article class="card" id="roomCard"></article>
+
+    <article class="card" id="bookCard">
+      <div class="eyebrow">Reserva de prueba</div>
+      <h3 style="font-size:20px;margin-top:2px" id="bookTitle">Reservar habitación</h3>
+      <p class="demo-note">Tarifas de ejemplo en EUR, editables. No se hacen cobros ni reservas reales.</p>
+      <form class="book" id="bookForm" novalidate>
+        <label>Hora de entrada<input type="time" id="fIn" value="15:00"></label>
+        <label>¿Cuántas horas necesitas?<input type="number" id="fHours" min="1" max="72" value="4"></label>
+        <label>Huéspedes<select id="fGuests"><option value="1">1</option><option value="2" selected>2</option></select></label>
+        <label>Precio por hora (€)<input type="number" id="fPrice" min="0" step="0.5" value="18"></label>
+        <label class="full">Nombre del huésped<input type="text" id="fName" placeholder="Ej. Ana Torres" autocomplete="off"></label>
+        <label class="full">Forma de pago
+          <select id="fPay">
+            <option value="hotel">Pago en el hotel</option>
+            <option value="card">Tarjeta · simulación</option>
+            <option value="transfer">Transferencia · solicitud de instrucciones</option>
+          </select>
+        </label>
+        <p class="warn full">No escribas datos de tarjeta ni bancarios. El pago en línea requiere un proveedor de pagos.</p>
+        <div class="total full"><span>Total estimado</span><b id="fTotal">€72.00</b></div>
+        <button class="btn primary full" id="fSubmit" type="submit">Confirmar reserva de prueba</button>
+        <div class="confirm full" id="fDone" hidden></div>
+      </form>
+    </article>
+  </aside>
+</main>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+(() => {
+  // ---------- Datos ----------
+  // Planta: 15.00 m x 14.76 m ≈ 221.4 m² por piso. Frente del edificio hacia +z.
+  const W = 15, D = 14.76, H = 3.1;
+  const FLOORS = [
+    { n: 1, name: 'Piso 1', sub: 'Recepción y cochera' },
+    { n: 2, name: 'Piso 2', sub: 'Habitaciones' },
+    { n: 3, name: 'Piso 3', sub: 'Habitaciones' },
+  ];
+  const finishes = 'Piso cerámico beige · paredes gris titanio';
+  const SPACES = [
+    { id: 'rec', floor: 1, kind: 'service', name: 'Recepción', pos: 'Frontal centro', x: -3, z: 3.2, w: 6, d: 4.18, desc: 'Mostrador de recepción y lobby de entrada.' },
+    { id: 'park', floor: 1, kind: 'parking', name: 'Cochera', pos: 'Lateral', x: 3, z: -7.38, w: 4.5, d: 14.76, desc: 'Cochera cubierta, 3 plazas.' },
+    { id: 'esc1', floor: 1, kind: 'service', name: 'Escalera', pos: 'Posterior izq', x: -7.5, z: -7.38, w: 3, d: 4, desc: 'Núcleo de escaleras.' },
+
+    { id: 'd1', floor: 2, kind: 'room', name: 'Dormitorio 1', pos: 'Frontal Izq', x: -7.5, z: 3.78, w: 3.67, d: 3.6, status: 'free', verify: true,
+      desc: 'Suite frontal con cama king, velador y baño incorporado con mampara de vidrio y acabados en madera fina.', bed: 'Cama king', bath: 'Baño suite' },
+    { id: 'h1', floor: 2, kind: 'hall', name: 'Salón social A', pos: 'Frontal centro', x: -3.83, z: 3.78, w: 7.66, d: 3.6, desc: 'Módulo de estar para huéspedes.' },
+    { id: 'd2', floor: 2, kind: 'room', name: 'Dormitorio 2', pos: 'Frontal Der', x: 3.83, z: 3.78, w: 3.67, d: 3.6, status: 'busy', verify: true,
+      desc: 'Habitación frontal con cama queen y baño privado.', bed: 'Cama queen', bath: 'Baño privado' },
+    { id: 'd3', floor: 2, kind: 'room', name: 'Dormitorio 3', pos: 'Posterior Izq', x: -4.5, z: -7.38, w: 4, d: 3.8, status: 'free', verify: true,
+      desc: 'Habitación posterior, más silenciosa, con cama doble y baño privado.', bed: 'Cama doble', bath: 'Baño privado' },
+    { id: 'esc2', floor: 2, kind: 'service', name: 'Escalera', pos: 'Posterior izq', x: -7.5, z: -7.38, w: 3, d: 4, desc: 'Núcleo de escaleras.' },
+
+    { id: 'd4', floor: 3, kind: 'room', name: 'Dormitorio 4', pos: 'Frontal Izq', x: -7.5, z: 3.78, w: 3.67, d: 3.6, status: 'busy', verify: true,
+      desc: 'Suite frontal con cama king y baño suite.', bed: 'Cama king', bath: 'Baño suite' },
+    { id: 'd5', floor: 3, kind: 'room', name: 'Dormitorio 5', pos: 'Frontal Der', x: 3.83, z: 3.78, w: 3.67, d: 3.6, status: 'free', verify: true,
+      desc: 'Habitación frontal con cama doble y baño privado.', bed: 'Cama doble', bath: 'Baño privado' },
+    { id: 'h2', floor: 3, kind: 'hall', name: 'Salón social B', pos: 'Posterior', x: -1, z: -7.38, w: 8.5, d: 4.2, desc: 'Terraza techada y sala común.' },
+    { id: 'esc3', floor: 3, kind: 'service', name: 'Escalera', pos: 'Posterior izq', x: -7.5, z: -7.38, w: 3, d: 4, desc: 'Núcleo de escaleras.' },
+  ];
+  const byId = Object.fromEntries(SPACES.map(s => [s.id, s]));
+  const state = { floor: 2, selected: 'd1', mode: 'self', tool: 'rotate' };
+
+  // ---------- Utilidades de tema ----------
+  const css = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+  const col = n => new THREE.Color(css(n) || '#888');
+
+  // ---------- Escena ----------
+  const canvas = document.getElementById('scene');
+  const viewer = document.getElementById('viewer');
+  const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
+  renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+  const scene = new THREE.Scene();
+  const camera = new THREE.PerspectiveCamera(40, 1, 0.1, 400);
+  scene.add(new THREE.HemisphereLight(0xffffff, 0x8a8a7a, 0.85));
+  const sun = new THREE.DirectionalLight(0xffffff, 0.6); sun.position.set(18, 30, 22); scene.add(sun);
+
+  const ground = new THREE.Mesh(new THREE.PlaneGeometry(80, 80), new THREE.MeshLambertMaterial({ color: 0xcfd3c8 }));
+  ground.rotation.x = -Math.PI / 2; ground.position.y = -0.02; scene.add(ground);
+  const grid = new THREE.GridHelper(40, 40, 0x9aa095, 0xb9bdb2); grid.position.y = 0; scene.add(grid);
+
+  const building = new THREE.Group(); scene.add(building);
+  const floorGroups = {};
+  const pickables = [];
+  const roomMeshes = {};
+
+  const matSlab = new THREE.MeshLambertMaterial({ color: 0xcdbfa3 });
+  const matFacade = new THREE.MeshLambertMaterial({ color: 0x8f9491, transparent: true, opacity: 0.18, depthWrite: false });
+  const matGlass = new THREE.MeshLambertMaterial({ color: 0x9fb8c4, transparent: true, opacity: 0.45 });
+
+  FLOORS.forEach(f => {
+    const g = new THREE.Group(); g.position.y = (f.n - 1) * H; building.add(g); floorGroups[f.n] = g;
+    const slab = new THREE.Mesh(new THREE.BoxGeometry(W + 0.3, 0.2, D + 0.3), matSlab); slab.position.y = 0.1; g.add(slab);
+    // fachada exterior translúcida con ventanas en el frente
+    const shell = new THREE.Mesh(new THREE.BoxGeometry(W, H - 0.2, D), matFacade); shell.position.y = 0.2 + (H - 0.2) / 2; shell.userData.shell = true; g.add(shell);
+    const shellEdges = new THREE.LineSegments(new THREE.EdgesGeometry(shell.geometry), new THREE.LineBasicMaterial({ color: 0x6b706c }));
+    shellEdges.position.copy(shell.position); shellEdges.userData.shell = true; g.add(shellEdges);
+    if (f.n > 1) for (let i = 0; i < 4; i++) {
+      const win = new THREE.Mesh(new THREE.BoxGeometry(2.2, 1.5, 0.06), matGlass);
+      win.position.set(-5.6 + i * 3.75, 1.7, D / 2 + 0.03); win.userData.shell = true; g.add(win);
+    } else {
+      const door = new THREE.Mesh(new THREE.BoxGeometry(3.2, 2.4, 0.06), matGlass);
+      door.position.set(-3, 1.4, D / 2 + 0.03); door.userData.shell = true; g.add(door);
+    }
+  });
+
+  SPACES.forEach(s => {
+    const g = floorGroups[s.floor];
+    const h = s.kind === 'parking' ? 0.08 : (s.kind === 'service' ? 2.6 : 2.5);
+    const geo = new THREE.BoxGeometry(s.w - 0.12, h, s.d - 0.12);
+    const mat = new THREE.MeshLambertMaterial({ transparent: true, opacity: s.kind === 'parking' ? 1 : 0.82 });
+    const m = new THREE.Mesh(geo, mat);
+    // x,z son la esquina mínima del espacio, en coordenadas del edificio centrado
+    m.position.set(s.x + s.w / 2, 0.2 + h / 2, s.z + s.d / 2);
+    m.userData.id = s.id;
+    const edges = new THREE.LineSegments(new THREE.EdgesGeometry(geo), new THREE.LineBasicMaterial({ color: 0x3d423e }));
+    m.add(edges);
+    g.add(m);
+    roomMeshes[s.id] = m;
+    if (s.kind === 'room' || s.kind === 'hall') pickables.push(m);
+    if (s.kind === 'room') { // cama
+      const bed = new THREE.Mesh(new THREE.BoxGeometry(1.9, 0.5, 2.1), new THREE.MeshLambertMaterial({ color: 0xf2efe8 }));
+      bed.position.set(0, -h / 2 + 0.25, -0.2); m.add(bed);
+    }
+    if (s.kind === 'parking') for (let i = 0; i < 3; i++) {
+      const car = new THREE.Mesh(new THREE.BoxGeometry(1.8, 1.2, 4), new THREE.MeshLambertMaterial({ color: [0x4a5a6a, 0x8a2f2a, 0xd8d6cf][i] }));
+      car.position.set(0, 0.64, -4.3 + i * 4.6); m.add(car);
+    }
+  });
+
+  function paint() {
+    scene.background = col('--scene-bg');
+    const isDark = document.documentElement.dataset.theme === 'dark' || (!document.documentElement.dataset.theme && matchMedia('(prefers-color-scheme: dark)').matches);
+    ground.material.color.set(isDark ? 0x222823 : 0xa9afa2);
+    const ok = col('--ok'), busy = col('--busy'), acc = col('--accent');
+    SPACES.forEach(s => {
+      const m = roomMeshes[s.id];
+      let c;
+      if (s.id === state.selected) c = acc;
+      else if (s.kind === 'room') c = s.status === 'free' ? ok : busy;
+      else if (s.kind === 'hall') c = new THREE.Color(0xc9b99a);
+      else if (s.kind === 'parking') c = new THREE.Color(0x777b77);
+      else c = new THREE.Color(0xb7bab4);
+      m.material.color.copy(c);
+    });
+  }
+
+  function applyFloor() {
+    FLOORS.forEach(f => {
+      const g = floorGroups[f.n];
+      g.visible = f.n <= state.floor; // corte: oculta los pisos de arriba
+      g.children.forEach(ch => { if (ch.userData.shell) ch.visible = f.n !== state.floor; });
+      g.children.forEach(ch => { if (ch.userData.id) ch.material.opacity = f.n === state.floor ? (byId[ch.userData.id].kind === 'parking' ? 1 : 0.85) : 0.25; });
+    });
+    target.y = (state.floor - 1) * H + 1;
+  }
+
+  // ---------- Cámara orbital propia ----------
+  const target = new THREE.Vector3(0, H, 0);
+  const home = { theta: 0.65, phi: 0.95, r: 34 };
+  let orb = { ...home };
+  function placeCamera() {
+    const { theta, phi, r } = orb;
+    camera.position.set(target.x + r * Math.sin(phi) * Math.sin(theta), target.y + r * Math.cos(phi), target.z + r * Math.sin(phi) * Math.cos(theta));
+    camera.lookAt(target);
+  }
+  function resize() {
+    const r = viewer.getBoundingClientRect();
+    renderer.setSize(r.width, r.height, false);
+    camera.aspect = r.width / r.height; camera.updateProjectionMatrix();
+    orb.r = Math.max(orb.r, r.width < 520 ? 44 : 30);
+  }
+
+  let drag = null, moved = 0;
+  canvas.addEventListener('pointerdown', e => { drag = { x: e.clientX, y: e.clientY }; moved = 0; canvas.setPointerCapture(e.pointerId); canvas.classList.add('dragging'); });
+  canvas.addEventListener('pointermove', e => {
+    if (!drag) { hover(e); return; }
+    const dx = e.clientX - drag.x, dy = e.clientY - drag.y; drag = { x: e.clientX, y: e.clientY }; moved += Math.abs(dx) + Math.abs(dy);
+    if (state.tool === 'rotate') {
+      orb.theta -= dx * 0.008; orb.phi = Math.min(1.45, Math.max(0.15, orb.phi - dy * 0.006));
+    } else {
+      const right = new THREE.Vector3().setFromMatrixColumn(camera.matrix, 0);
+      const fwd = new THREE.Vector3().crossVectors(new THREE.Vector3(0, 1, 0), right);
+      target.addScaledVector(right, -dx * 0.04).addScaledVector(fwd, dy * 0.04);
+    }
+  });
+  const endDrag = e => { if (drag && moved < 6) pick(e); drag = null; canvas.classList.remove('dragging'); };
+  canvas.addEventListener('pointerup', endDrag);
+  canvas.addEventListener('pointercancel', () => { drag = null; canvas.classList.remove('dragging'); });
+  canvas.addEventListener('wheel', e => { e.preventDefault(); orb.r = Math.min(80, Math.max(14, orb.r * (1 + Math.sign(e.deltaY) * 0.08))); }, { passive: false });
+  canvas.addEventListener('pointerleave', () => tip.hidden = true);
+
+  const ray = new THREE.Raycaster(), ndc = new THREE.Vector2();
+  function hitAt(e) {
+    const r = canvas.getBoundingClientRect();
+    ndc.set(((e.clientX - r.left) / r.width) * 2 - 1, -((e.clientY - r.top) / r.height) * 2 + 1);
+    ray.setFromCamera(ndc, camera);
+    const vis = pickables.filter(m => byId[m.userData.id].floor === state.floor);
+    const hit = ray.intersectObjects(vis, false)[0];
+    return hit ? { id: hit.object.userData.id, x: e.clientX - r.left, y: e.clientY - r.top } : null;
+  }
+  const tip = document.getElementById('tip');
+  function hover(e) {
+    const h = hitAt(e);
+    if (!h) { tip.hidden = true; return; }
+    const s = byId[h.id];
+    tip.textContent = s.name + (s.kind === 'room' ? ' · ' + (s.status === 'free' ? 'Disponible' : 'Ocupada') : '');
+    tip.style.left = h.x + 'px'; tip.style.top = h.y + 'px'; tip.hidden = false;
+  }
+  function pick(e) { const h = hitAt(e); if (h) select(h.id); }
+
+  // ---------- UI ----------
+  const floorsNav = document.getElementById('floors');
+  function renderFloors() {
+    floorsNav.innerHTML = FLOORS.map(f => `<button class="floor-btn" data-f="${f.n}" aria-pressed="${f.n === state.floor}">${f.name} <small>${f.sub}</small></button>`).join('');
+  }
+  floorsNav.addEventListener('click', e => {
+    const b = e.target.closest('[data-f]'); if (!b) return;
+    state.floor = +b.dataset.f;
+    const first = SPACES.find(s => s.floor === state.floor && (s.kind === 'room' || s.kind === 'hall')) || SPACES.find(s => s.floor === state.floor);
+    state.selected = first.id;
+    renderFloors(); applyFloor(); update();
+  });
+  document.getElementById('menuBtn').addEventListener('click', e => {
+    floorsNav.hidden = !floorsNav.hidden; e.currentTarget.setAttribute('aria-expanded', String(!floorsNav.hidden));
+  });
+
+  function select(id) {
+    state.selected = id;
+    const s = byId[id];
+    if (s.floor !== state.floor) { state.floor = s.floor; renderFloors(); applyFloor(); }
+    update();
+  }
+
+  const roomCard = document.getElementById('roomCard');
+  function renderCard() {
+    const s = byId[state.selected];
+    if (!s) { roomCard.innerHTML = '<p class="empty">Selecciona una habitación en el modelo.</p>'; return; }
+    const pill = s.kind === 'room'
+      ? `<span class="pill ${s.status}">${s.status === 'free' ? 'Disponible' : 'Ocupada'}</span>`
+      : `<span class="pill hall">${s.kind === 'hall' ? 'Área común' : 'Servicio'}</span>`;
+    const area = (s.w * s.d).toFixed(1);
+    roomCard.innerHTML = `
+      <div class="room-head">
+        <div><div class="eyebrow">${FLOORS[s.floor - 1].name} · ${s.pos}</div><h3>${s.name}</h3></div>${pill}
+      </div>
+      <p class="room-desc">${s.desc}</p>
+      <dl class="specs">
+        <dt>Medidas</dt><dd><span class="mono">${s.w.toFixed(2)} m × ${s.d.toFixed(2)} m</span>${s.verify ? '<span class="verify">por verificar</span>' : ''}</dd>
+        <dt>Área</dt><dd class="mono">${area} m²</dd>
+        ${s.kind === 'room' ? `<dt>Cama</dt><dd>${s.bed}</dd><dt>Baño</dt><dd>${s.bath}</dd>` : ''}
+        <dt>Acabados</dt><dd>${s.kind === 'room' ? 'Piso cerámico + ' + s.bath + ' + ' + s.bed : finishes}</dd>
+        <dt>Ubicación</dt><dd>Ejes A-B / 7-8, según fotografía</dd>
+      </dl>
+      <div class="actions">
+        <button class="btn" id="inspect">Inspeccionar 3D</button>
+        <button class="btn primary" id="reserve" ${s.kind !== 'room' || s.status !== 'free' ? 'disabled' : ''}>Reservar</button>
+      </div>`;
+    roomCard.querySelector('#inspect').onclick = () => focusOn(s);
+    roomCard.querySelector('#reserve').onclick = () => { document.getElementById('fName').focus(); document.getElementById('bookCard').scrollIntoView({ behavior: 'smooth', block: 'start' }); };
+  }
+
+  function focusOn(s) {
+    target.set(s.x + s.w / 2, (s.floor - 1) * H + 1, s.z + s.d / 2);
+    orb.r = 16; orb.phi = 0.75;
+  }
+
+  const fields = ['fHours', 'fPrice', 'fGuests'].map(id => document.getElementById(id));
+  function renderTotal() {
+    const t = (+document.getElementById('fHours').value || 0) * (+document.getElementById('fPrice').value || 0);
+    document.getElementById('fTotal').textContent = '€' + t.toFixed(2);
+  }
+  fields.forEach(f => f.addEventListener('input', renderTotal));
+
+  function renderBooking() {
+    const s = byId[state.selected];
+    const ok = s && s.kind === 'room' && s.status === 'free';
+    document.getElementById('bookTitle').textContent = ok ? 'Reserva tu habitación · ' + s.name : 'Elige una habitación disponible';
+    document.getElementById('fSubmit').disabled = !ok;
+  }
+  document.getElementById('bookForm').addEventListener('submit', e => {
+    e.preventDefault();
+    const s = byId[state.selected];
+    const name = document.getElementById('fName').value.trim() || 'Huésped de prueba';
+    const pay = document.getElementById('fPay').selectedOptions[0].textContent;
+    const done = document.getElementById('fDone');
+    done.textContent = `Reserva de prueba registrada: ${s.name} para ${name}, entrada ${document.getElementById('fIn').value}, ${document.getElementById('fHours').value} h, ${document.getElementById('fTotal').textContent}. ${pay}. Habitación marcada como ocupada.`;
+    done.hidden = false;
+    s.status = 'busy';
+    update();
+  });
+
+  // Recepción
+  const recep = document.getElementById('reception');
+  function setMode(m) {
+    state.mode = m;
+    document.getElementById('modeSelf').setAttribute('aria-pressed', String(m === 'self'));
+    document.getElementById('modeLive').setAttribute('aria-pressed', String(m === 'live'));
+    recep.hidden = m !== 'live';
+  }
+  document.getElementById('modeSelf').onclick = () => setMode('self');
+  document.getElementById('modeLive').onclick = () => setMode('live');
+  document.getElementById('closeReception').onclick = () => setMode('self');
+  function renderReception() {
+    const rooms = SPACES.filter(s => s.kind === 'room');
+    document.getElementById('stFree').textContent = rooms.filter(r => r.status === 'free').length;
+    document.getElementById('stBusy').textContent = rooms.filter(r => r.status === 'busy').length;
+    document.getElementById('stHalls').textContent = SPACES.filter(s => s.kind === 'hall').length + ' módulos';
+    document.getElementById('roomList').innerHTML = rooms.map(r => `<li><span>${r.name} <small style="color:var(--muted)">P${r.floor}</small></span><span><span class="pill ${r.status}">${r.status === 'free' ? 'Libre' : 'Ocupada'}</span> <button data-toggle="${r.id}">Cambiar</button></span></li>`).join('');
+  }
+  document.getElementById('roomList').addEventListener('click', e => {
+    const b = e.target.closest('[data-toggle]'); if (!b) return;
+    const r = byId[b.dataset.toggle]; r.status = r.status === 'free' ? 'busy' : 'free'; update();
+  });
+
+  // Herramientas
+  const tR = document.getElementById('toolRotate'), tM = document.getElementById('toolMove');
+  function setTool(t) { state.tool = t; tR.setAttribute('aria-pressed', String(t === 'rotate')); tM.setAttribute('aria-pressed', String(t === 'move'));
+    document.getElementById('hint').textContent = t === 'rotate' ? 'Arrastra para girar · toca una habitación' : 'Arrastra para mover la vista · toca una habitación'; }
+  tR.onclick = () => setTool('rotate'); tM.onclick = () => setTool('move');
+  document.getElementById('toolReset').onclick = () => { orb = { ...home }; target.set(0, (state.floor - 1) * H + 1, 0); resize(); };
+
+  function update() {
+    const s = byId[state.selected];
+    document.getElementById('vTitle').textContent = s ? `${FLOORS[state.floor - 1].name} · ${s.name}` : 'Seleccionar piso y habitación';
+    paint(); renderCard(); renderBooking(); renderReception();
+  }
+
+  matchMedia('(prefers-color-scheme: dark)').addEventListener('change', paint);
+  new MutationObserver(paint).observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
+  new ResizeObserver(resize).observe(viewer);
+
+  renderFloors(); applyFloor(); resize(); update(); renderTotal();
+  (function loop() { placeCamera(); renderer.render(scene, camera); requestAnimationFrame(loop); })();
+})();
+</script>
